@@ -152,3 +152,9 @@ Proceed in two phases:
 2. **Phase B (online):** plug in `copilotSDKAdapter` behind the same interface.
 
 This is the safest path to fast iteration, low cost, and high confidence.
+
+## Local developer commands (MVP scaffold)
+
+- `go run ./cmd/copilot-tui`
+- `go test ./...`
+- `go test -race ./...` (requires `CGO_ENABLED=1` and a C compiler such as `gcc` on Windows)
