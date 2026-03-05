@@ -2,12 +2,7 @@
 
 ## Goal
 
-Build a Go TUI Copilot client with:
-- prompt input at the bottom,
-- streaming conversation at the top,
-- clean separation between UI logic and provider (Copilot SDK) logic.
-
-For now, image features are explicitly out of scope.
+Read IDEA.md 
 
 ## Locked stack for v1
 
@@ -81,37 +76,27 @@ This lets us test UI behavior deeply without making real Copilot calls or spendi
 
 ## Testing strategy (good + simple)
 
-### Layer 1: Pure unit tests (fast, deterministic)
-- Test state reducers / update functions with synthetic events.
-- Test edge cases:
-  - many tiny deltas,
-  - out-of-order completion events,
-  - abort during stream,
-  - empty response,
-  - very long markdown blocks.
+### Automated tests (primary)
+- Focus on **Layer 1 only**:
+  - pure unit tests for state reducers / update functions,
+  - synthetic event sequences,
+  - deterministic edge cases (tiny deltas, abort, empty response, long markdown, etc.).
+- Keep tests table-driven and fast.
+- Use standard `go test` and `go test -race`.
 
-### Layer 2: Model-level Bubble Tea tests
-- Drive `Update(msg)` with scripted message sequences.
-- Assert model state transitions and key invariants:
-  - current input buffer,
-  - selected pane/scroll position,
-  - transcript entry count,
-  - stream-in-progress flags.
+### Adapter safety checks (minimal)
+- Keep a small contract test set to ensure `mockAdapter` and `copilotSDKAdapter`
+  follow the same event contract.
+- Avoid heavy UI automation unless there is a clear regression need.
 
-### Layer 3: Golden rendering tests (regression safety)
-- Render `View()` for representative model states.
-- Compare against golden files (stable snapshots).
-- Great for catching accidental layout/style regressions.
-
-### Layer 4: Adapter contract tests
-- Same test suite must pass for `mockAdapter` and `copilotSDKAdapter`.
-- Ensures provider swap does not change app behavior.
+### Manual UI validation (preferred for UX)
+- Validate Bubble Tea rendering/interaction manually using fake scenarios.
+- Prioritize rapid visual iteration over over-engineered UI test harnesses.
 
 ### Practical test tooling
-- Start with standard `go test` only.
-- Add `-race` in CI early.
-- Add table-driven tests for event sequences.
-- Keep tests deterministic (fixed timers/seeded pseudo-random streams).
+- `go test ./...`
+- `go test -race ./...`
+- scenario-driven manual checks via mock streaming.
 
 ## Mock streaming design (essential)
 
@@ -125,6 +110,19 @@ This lets us test UI behavior deeply without making real Copilot calls or spendi
 
 Each scenario emits timed events over the same channel contract as real adapter.
 This gives realistic UX testing while remaining fully offline.
+
+## Command palette scenario access (manual testing workflow)
+
+Use the command palette as the primary test driver:
+- `Load scenario: normal_markdown_stream`
+- `Load scenario: tool_call_failure`
+- `Load scenario: interrupted_stream`
+- `Load scenario: slow_token_stream`
+
+Optional palette actions:
+- `List scenarios`
+- `Set stream speed`
+- `Random scenario (seeded)`
 
 ## Markdown/input specifics
 
@@ -144,7 +142,7 @@ This gives realistic UX testing while remaining fully offline.
   - Mitigation: buffered rendering + deterministic scenario tests.
 
 - **UI regressions as features grow**
-  - Mitigation: golden rendering tests + model-state invariants.
+  - Mitigation: fast manual scenario runs + focused unit tests on state transitions.
 
 ## Final recommendation
 
@@ -154,55 +152,3 @@ Proceed in two phases:
 2. **Phase B (online):** plug in `copilotSDKAdapter` behind the same interface.
 
 This is the safest path to fast iteration, low cost, and high confidence.
-
-## Implementation roadmap (practical, iterative)
-
-### Milestone 0 - Project skeleton
-- Create package layout:
-  - `cmd/copilot-tui/`
-  - `internal/app/` (model/update/view)
-  - `internal/copilot/` (adapter contracts + impls)
-  - `internal/render/` (markdown/tool block rendering)
-  - `internal/testutil/` (event fixtures, test helpers)
-- Add basic app bootstrap with a static placeholder UI.
-- Exit criteria: app starts, handles resize, exits cleanly.
-
-### Milestone 1 - Input + transcript shell (offline)
-- Implement `textarea` prompt input and `viewport` transcript pane.
-- Add submit/newline behavior and basic keymap/help.
-- Add message list model and scrolling behavior.
-- Exit criteria: manual prompt submission produces local echo in transcript.
-
-### Milestone 2 - Mock streaming adapter
-- Implement `mockAdapter` and scenario emitter.
-- Stream synthetic events into app state:
-  - message deltas,
-  - reasoning deltas,
-  - tool start/complete,
-  - terminal errors.
-- Exit criteria: realistic streaming conversation works without Copilot.
-
-### Milestone 3 - Rendering quality + markdown
-- Integrate Glamour rendering for assistant content.
-- Add throttled incremental rerender + final-pass rerender.
-- Style conversation blocks and tool timeline entries with Lip Gloss.
-- Exit criteria: stable markdown rendering under long streaming outputs.
-
-### Milestone 4 - Regression test baseline
-- Add table-driven model tests for event/state transitions.
-- Add golden tests for `View()` output on representative states.
-- Add race checks (`go test -race`) in CI/local scripts.
-- Exit criteria: deterministic tests catch regressions in state and layout.
-
-### Milestone 5 - Real Copilot adapter integration
-- Implement `copilotSDKAdapter` behind the same `Adapter` interface.
-- Map SDK events into internal event model.
-- Keep mock + real adapter contract tests identical.
-- Exit criteria: switch provider via config flag/env without UI code changes.
-
-### Milestone 6 - Hardening and polish
-- Better error surfaces and reconnect/abort behavior.
-- Persist/restore local transcript history if needed.
-- Optional config layer and CLI command expansion.
-- Exit criteria: stable daily-driver workflow.
-

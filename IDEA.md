@@ -18,7 +18,7 @@ Build a custom terminal app that feels like a simplified Copilot CLI:
 - **Bottom pane:** editable prompt box (multi-line input, queue message on Enter, insert newline in your prompt on Shift+Enter, etc).
 - **Status/footer line:** mode, model, token/usage hints, connection state, etc.
 
-Very clean looking, very uninstrusive, like CODEX CLI.
+Very clean looking, very unintrusive, like CODEX CLI.
 
 ### Streaming behavior
 - Assistant text appears incrementally as chunks arrive.
@@ -39,3 +39,20 @@ The UI should map Copilot SDK events into readable blocks. Check up-to-date Copi
 ## Commands
 
 One single, global, simple entry point for all commands, customizations, options, etc: a command palette triggered with Ctrl+P.
+
+## Future possible Codex support
+
+Primary scope remains GitHub Copilot SDK integration.
+
+Possible future extension: add Codex as an optional provider through a separate adapter.
+
+Most feasible path for Go:
+- run `codex exec --json` (headless mode),
+- parse JSONL events,
+- map them into the same internal event model used by the Copilot adapter.
+
+Important limitation:
+- `codex exec` is non-interactive, so some interactive approval/question flows may not have full parity with the Copilot SDK path.
+
+Potential future upgrade path:
+- evaluate `codex app-server` integration if richer interactive parity becomes necessary (currently marked experimental upstream).
