@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "bubbletea": {
+      "source": "ggprompts/tfe",
+      "sourceType": "github",
+      "computedHash": "cd98a64feb316ec37177cf46c3acbdb7e459d9cb0969ad59fa735ad40a339bac"
+    },
+    "golang-patterns": {
+      "source": "affaan-m/everything-claude-code",
+      "sourceType": "github",
+      "computedHash": "2168b141260f2c0c2c952afe22f0947cdc76f4339e823ab666933853e206e511"
+    },
+    "golang-pro": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "computedHash": "04dd56df210d6e79bf3528175f11fa213cf62040acc3b3b3ec11dc2c586b8e3c"
+    }
+  }
+}
