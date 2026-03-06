@@ -15,6 +15,68 @@ import (
 func TestProgramStartupTypingAndQuit(t *testing.T) {
 	t.Parallel()
 
+	finalModel := runProgramScript(t,
+		tea.WindowSizeMsg{Width: 80, Height: 24},
+		tea.KeyPressMsg{Code: 'h', Text: "h"},
+		tea.KeyPressMsg{Code: 'i', Text: "i"},
+		tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+	)
+
+	if got, want := finalModel.input.Value(), "hi"; got != want {
+		t.Fatalf("expected typed input %q, got %q", want, got)
+	}
+}
+
+func TestProgramSubmitAndQuitWhileStreaming(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramScript(t,
+		tea.WindowSizeMsg{Width: 80, Height: 24},
+		tea.KeyPressMsg{Code: 'h', Text: "h"},
+		tea.KeyPressMsg{Code: 'i', Text: "i"},
+		tea.KeyPressMsg{Code: tea.KeyEnter},
+		tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+	)
+
+	if got := finalModel.input.Value(); got != "" {
+		t.Fatalf("expected input to be cleared after submit, got %q", got)
+	}
+	if len(finalModel.state.Items) == 0 || finalModel.state.Items[0].Kind != TimelineUser || finalModel.state.Items[0].Text != "hi" {
+		t.Fatalf("expected submitted user prompt to be recorded, got %#v", finalModel.state.Items)
+	}
+}
+
+func TestProgramSelectionReplaceAndQuit(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramScript(t,
+		tea.WindowSizeMsg{Width: 80, Height: 24},
+		tea.KeyPressMsg{Code: 'o', Text: "o"},
+		tea.KeyPressMsg{Code: 'n', Text: "n"},
+		tea.KeyPressMsg{Code: 'e', Text: "e"},
+		tea.KeyPressMsg{Code: ' ', Text: " "},
+		tea.KeyPressMsg{Code: 't', Text: "t"},
+		tea.KeyPressMsg{Code: 'w', Text: "w"},
+		tea.KeyPressMsg{Code: 'o', Text: "o"},
+		tea.KeyPressMsg{Code: ' ', Text: " "},
+		tea.KeyPressMsg{Code: 't', Text: "t"},
+		tea.KeyPressMsg{Code: 'h', Text: "h"},
+		tea.KeyPressMsg{Code: 'r', Text: "r"},
+		tea.KeyPressMsg{Code: 'e', Text: "e"},
+		tea.KeyPressMsg{Code: 'e', Text: "e"},
+		tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl | tea.ModShift},
+		tea.KeyPressMsg{Code: 'X', Text: "X"},
+		tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+	)
+
+	if got, want := finalModel.input.Value(), "one two X"; got != want {
+		t.Fatalf("expected selection replacement %q, got %q", want, got)
+	}
+}
+
+func runProgramScript(t *testing.T, msgs ...tea.Msg) *model {
+	t.Helper()
+
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
 
@@ -39,10 +101,9 @@ func TestProgramStartupTypingAndQuit(t *testing.T) {
 		results <- runResult{model: finalModel, err: err}
 	}()
 
-	p.Send(tea.WindowSizeMsg{Width: 80, Height: 24})
-	p.Send(tea.KeyPressMsg{Code: 'h', Text: "h"})
-	p.Send(tea.KeyPressMsg{Code: 'i', Text: "i"})
-	p.Send(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+	for _, msg := range msgs {
+		p.Send(msg)
+	}
 
 	select {
 	case result := <-results:
@@ -55,14 +116,13 @@ func TestProgramStartupTypingAndQuit(t *testing.T) {
 			t.Fatalf("expected *model, got %T", result.model)
 		}
 
-		if got, want := finalModel.input.Value(), "hi"; got != want {
-			t.Fatalf("expected typed input %q, got %q", want, got)
-		}
-
+		return finalModel
 	case <-ctx.Done():
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			t.Fatal("program did not process startup, typing, and quit before timeout")
+			t.Fatal("program did not process smoke-test script before timeout")
 		}
 		t.Fatalf("program context ended unexpectedly: %v", ctx.Err())
 	}
+
+	return nil
 }
