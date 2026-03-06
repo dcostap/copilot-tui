@@ -13,6 +13,7 @@ func (m *model) View() tea.View {
 	if m.width <= 0 || m.height <= 0 {
 		view := tea.NewView("Starting...")
 		view.AltScreen = true
+		view.KeyboardEnhancements.ReportEventTypes = true
 		return view
 	}
 
@@ -26,6 +27,7 @@ func (m *model) View() tea.View {
 	parts = append(parts, m.input.View(), m.renderFooter())
 	view := tea.NewView(strings.Join(parts, "\n"))
 	view.AltScreen = true
+	view.KeyboardEnhancements.ReportEventTypes = true
 	return view
 }
 
@@ -65,10 +67,11 @@ func (m *model) renderFooter() string {
 	}
 
 	text := fmt.Sprintf(
-		"mode:%s · scenario:%s · %s · Ctrl+P palette · Enter send · Shift+Enter/Ctrl+J newline · Ctrl+C quit",
+		"mode:%s · scenario:%s · %s · Ctrl+P palette · Enter send · %s newline · Ctrl+C quit",
 		mode,
 		m.currentScenario,
 		m.status,
+		m.newlineHint(),
 	)
 
 	return m.styles.Footer.Render(ui.Truncate(text, m.width))

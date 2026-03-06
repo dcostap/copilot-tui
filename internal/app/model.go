@@ -38,6 +38,7 @@ type model struct {
 	paletteItems    []string
 	paletteIndex    int
 	currentScenario string
+	useShiftEnter   bool
 
 	lastRender      time.Time
 	pendingRender   bool
@@ -84,6 +85,7 @@ func newModel(adapter copilot.Adapter) *model {
 		state:           NewConversationState(),
 		status:          "ready",
 		currentScenario: "normal_markdown_stream",
+		useShiftEnter:   false,
 	}
 	m.rebuildPalette()
 	m.renderNow()
@@ -362,4 +364,11 @@ func (m *model) applyPaletteSelection(selection string) {
 		controller.SetStreamDelay(delay)
 		m.status = "stream speed set to " + speed
 	}
+}
+
+func (m *model) newlineHint() string {
+	if m.useShiftEnter {
+		return "Shift+Enter"
+	}
+	return "Ctrl+J"
 }

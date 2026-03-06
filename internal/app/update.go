@@ -26,6 +26,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case tea.KeyboardEnhancementsMsg:
+		m.useShiftEnter = msg.SupportsKeyDisambiguation()
+		m.renderNow()
+		return m, nil
+
 	case tea.KeyPressMsg:
 		if m.showPalette {
 			return m, m.updatePaletteKeys(msg)
