@@ -156,6 +156,34 @@ func TestProgramRawInputWin32WordLeftAtStartDoesNotHang(t *testing.T) {
 	}
 }
 
+func TestProgramRawBracketedPasteWithNewlinesDoesNotSubmit(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("\x1b[200~first line\nsecond line\x1b[201~\x03")
+	finalModel := runProgramRawInput(t, input)
+
+	if got, want := finalModel.input.Value(), "first line\nsecond line"; got != want {
+		t.Fatalf("expected bracketed paste to preserve %q, got %q", want, got)
+	}
+	if len(finalModel.state.Items) != 0 {
+		t.Fatalf("expected paste not to submit, got timeline %#v", finalModel.state.Items)
+	}
+}
+
+func TestProgramRawInputWin32PasteBurstNewlineDoesNotSubmit(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("first line" + win32KeyPress(13, 0) + "second line\x03")
+	finalModel := runProgramRawInput(t, input)
+
+	if got, want := finalModel.input.Value(), "first line\nsecond line"; got != want {
+		t.Fatalf("expected win32 paste burst text %q, got %q", want, got)
+	}
+	if len(finalModel.state.Items) != 0 {
+		t.Fatalf("expected win32 paste burst not to submit, got timeline %#v", finalModel.state.Items)
+	}
+}
+
 func runProgramScript(t *testing.T, msgs ...tea.Msg) *model {
 	t.Helper()
 

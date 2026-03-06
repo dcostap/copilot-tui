@@ -13,6 +13,7 @@ type adapterEventMsg struct {
 }
 
 type renderTickMsg struct{}
+type inputFlushTickMsg struct{}
 
 func waitForAdapterEvent(events <-chan copilot.Event) tea.Cmd {
 	return func() tea.Msg {
@@ -30,5 +31,14 @@ func renderTickCmd(delay time.Duration) tea.Cmd {
 	}
 	return tea.Tick(delay, func(time.Time) tea.Msg {
 		return renderTickMsg{}
+	})
+}
+
+func inputFlushTickCmd(delay time.Duration) tea.Cmd {
+	if delay < 0 {
+		delay = 0
+	}
+	return tea.Tick(delay, func(time.Time) tea.Msg {
+		return inputFlushTickMsg{}
 	})
 }

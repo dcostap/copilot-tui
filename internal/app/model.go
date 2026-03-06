@@ -43,6 +43,7 @@ type model struct {
 	lastRender      time.Time
 	pendingRender   bool
 	renderScheduled bool
+	inputFlushTick  bool
 
 	markdownRenderer  *glamour.TermRenderer
 	markdownWrapWidth int
@@ -54,6 +55,7 @@ func New() tea.Model {
 
 func newModel(adapter copilot.Adapter) *model {
 	input := composer.New()
+	input.SetPasteBurstEnabled(true)
 	input.Placeholder = "Type a prompt..."
 	input.SetPromptFunc(2, func(info composer.PromptInfo) string {
 		if info.LineNumber == 0 {

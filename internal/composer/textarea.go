@@ -108,7 +108,7 @@ func DefaultKeyMap() KeyMap {
 		LineEnd:                 key.NewBinding(key.WithKeys("end", "ctrl+e"), key.WithHelp("end", "line end")),
 		PageUp:                  key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "page up")),
 		PageDown:                key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "page down")),
-		Paste:                   key.NewBinding(key.WithKeys("ctrl+v"), key.WithHelp("ctrl+v", "paste")),
+		Paste:                   key.NewBinding(key.WithKeys("ctrl+v", "ctrl+shift+v", "shift+insert"), key.WithHelp("ctrl+v", "paste")),
 		SelectInputBegin:        key.NewBinding(key.WithKeys("ctrl+shift+home"), key.WithHelp("ctrl+shift+home", "select input begin")),
 		SelectInputEnd:          key.NewBinding(key.WithKeys("ctrl+shift+end"), key.WithHelp("ctrl+shift+end", "select input end")),
 		InputBegin:              key.NewBinding(key.WithKeys("alt+<", "ctrl+home"), key.WithHelp("alt+<", "input begin")),
@@ -362,6 +362,9 @@ type Model struct {
 
 	// rune sanitizer for input.
 	rsan runeutil.Sanitizer
+
+	pasteBurst        pasteBurst
+	pasteBurstEnabled bool
 }
 
 type textPos struct {
@@ -408,6 +411,8 @@ func New() Model {
 // the textarea.
 func DefaultStyles(isDark bool) Styles {
 	lightDark := lipgloss.LightDark(isDark)
+	selectionFG := lipgloss.Color("#F9FAFB")
+	selectionBG := lipgloss.Color("#214283")
 
 	var s Styles
 	s.Focused = StyleState{
@@ -418,7 +423,7 @@ func DefaultStyles(isDark bool) Styles {
 		LineNumber:       lipgloss.NewStyle().Foreground(lightDark(lipgloss.Color("249"), lipgloss.Color("7"))),
 		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
 		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
-		Selection:        lipgloss.NewStyle().Reverse(true),
+		Selection:        lipgloss.NewStyle().Foreground(selectionFG).Background(selectionBG),
 		Text:             lipgloss.NewStyle(),
 	}
 	s.Blurred = StyleState{
@@ -429,7 +434,7 @@ func DefaultStyles(isDark bool) Styles {
 		LineNumber:       lipgloss.NewStyle().Foreground(lightDark(lipgloss.Color("249"), lipgloss.Color("7"))),
 		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
 		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
-		Selection:        lipgloss.NewStyle().Reverse(true),
+		Selection:        lipgloss.NewStyle().Foreground(selectionFG).Background(selectionBG),
 		Text:             lipgloss.NewStyle().Foreground(lightDark(lipgloss.Color("245"), lipgloss.Color("7"))),
 	}
 	s.Cursor = CursorStyle{
@@ -1393,8 +1398,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
-		m.insertRunesFromUserInput([]rune(msg.Content))
+		m.handleExplicitPaste(msg.Content)
 	case tea.KeyPressMsg:
+		if m.handlePlainKeyPress(msg) {
+			break
+		}
+		if !isModifierOnlyKeyPress(msg) {
+			m.FlushPasteBurstBeforeExternalInput()
+		}
 		switch {
 		case key.Matches(msg, m.KeyMap.SelectInputBegin):
 			m.updateSelection(m.MoveToBegin)
@@ -1548,7 +1559,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 
 	case pasteMsg:
-		m.insertRunesFromUserInput([]rune(msg))
+		m.handleExplicitPaste(string(msg))
 
 	case pasteErrMsg:
 		m.Err = msg
