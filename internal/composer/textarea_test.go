@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 	"unicode"
 
 	tea "charm.land/bubbletea/v2"
@@ -2014,6 +2015,46 @@ func TestSelectionMotionDoesNotDeleteText(t *testing.T) {
 			t.Fatal("expected selection to become active")
 		}
 	})
+
+	t.Run("shift home", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea = sendString(textarea, "abc")
+		textarea.col = 2
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyHome, Mod: tea.ModShift, Text: "shift+home"})
+
+		if got, want := textarea.Value(), "abc"; got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+		if !textarea.hasSelection() {
+			t.Fatal("expected selection to become active")
+		}
+		if textarea.selectionCol != 2 || textarea.col != 0 {
+			t.Fatalf("expected anchor at 2 and cursor at 0, got anchor=%d cursor=%d", textarea.selectionCol, textarea.col)
+		}
+	})
+
+	t.Run("ctrl shift end", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("one\ntwo")
+		textarea.row = 0
+		textarea.col = 1
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyEnd, Mod: tea.ModCtrl | tea.ModShift, Text: "ctrl+shift+end"})
+
+		if got, want := textarea.Value(), "one\ntwo"; got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+		if !textarea.hasSelection() {
+			t.Fatal("expected selection to become active")
+		}
+		if textarea.selectionRow != 0 || textarea.selectionCol != 1 {
+			t.Fatalf("expected anchor at row=0 col=1, got row=%d col=%d", textarea.selectionRow, textarea.selectionCol)
+		}
+		if textarea.row != 1 || textarea.col != 3 {
+			t.Fatalf("expected cursor at input end row=1 col=3, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
 }
 
 func TestSelectionBackspaceDeletesRange(t *testing.T) {
@@ -2044,6 +2085,96 @@ func TestSelectionShiftLeftTracksAnchor(t *testing.T) {
 	if textarea.selectionCol != 3 || textarea.col != 2 {
 		t.Fatalf("expected anchor at 3 and cursor at 2, got anchor=%d cursor=%d", textarea.selectionCol, textarea.col)
 	}
+}
+
+func TestSelectionHomeEndReplacement(t *testing.T) {
+	t.Run("shift home replaces to line start", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea = sendString(textarea, "abc")
+		textarea.col = 2
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyHome, Mod: tea.ModShift, Text: "shift+home"})
+		textarea, _ = textarea.Update(keyPress('X'))
+
+		if got, want := textarea.Value(), "Xc"; got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("ctrl shift end replaces to input end", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("one\ntwo")
+		textarea.row = 0
+		textarea.col = 1
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyEnd, Mod: tea.ModCtrl | tea.ModShift, Text: "ctrl+shift+end"})
+		textarea, _ = textarea.Update(keyPress('X'))
+
+		if got, want := textarea.Value(), "oX"; got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+}
+
+func TestModifierKeyDoesNotDeleteSelection(t *testing.T) {
+	textarea := newTextArea()
+	textarea = sendString(textarea, "abc")
+
+	textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModShift, Text: "shift+left"})
+	textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeftCtrl, Mod: tea.ModCtrl})
+
+	if got, want := textarea.Value(), "abc"; got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+	if !textarea.hasSelection() {
+		t.Fatal("selection should remain active after modifier-only input")
+	}
+}
+
+func TestWordBackwardAtStartDoesNotLoop(t *testing.T) {
+	t.Run("empty input", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("")
+
+		done := make(chan struct{})
+		go func() {
+			textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl, Text: "ctrl+left"})
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(200 * time.Millisecond):
+			t.Fatal("ctrl+left at start of empty input should not hang")
+		}
+
+		if textarea.row != 0 || textarea.col != 0 {
+			t.Fatalf("expected cursor to stay at origin, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
+
+	t.Run("leading spaces", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("  abc")
+		textarea.row = 0
+		textarea.col = 2
+
+		done := make(chan struct{})
+		go func() {
+			textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl, Text: "ctrl+left"})
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(200 * time.Millisecond):
+			t.Fatal("ctrl+left across leading whitespace should not hang")
+		}
+
+		if textarea.col != 0 {
+			t.Fatalf("expected cursor to land at start of input, got col=%d", textarea.col)
+		}
+	})
 }
 
 func newTextArea() Model {

@@ -1,8 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -101,6 +103,59 @@ func TestProgramSelectionMotionIsNonDestructive(t *testing.T) {
 	}
 }
 
+func TestProgramRawInputTypingAndQuit(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramRawInput(t, []byte("hi\x03"))
+
+	if got, want := finalModel.input.Value(), "hi"; got != want {
+		t.Fatalf("expected typed input %q, got %q", want, got)
+	}
+}
+
+func TestProgramRawInputSelectionReplace(t *testing.T) {
+	t.Parallel()
+
+	input := append([]byte("one two three"), []byte("\x1b[1;6DX\x03")...)
+	finalModel := runProgramRawInput(t, input)
+
+	if got, want := finalModel.input.Value(), "one two X"; got != want {
+		t.Fatalf("expected raw-input selection replacement %q, got %q", want, got)
+	}
+}
+
+func TestProgramRawInputWin32SelectionReplace(t *testing.T) {
+	t.Parallel()
+
+	input := append([]byte("one two three"), []byte(win32KeyPress(37, 0x0118)+"X\x03")...)
+	finalModel := runProgramRawInput(t, input)
+
+	if got, want := finalModel.input.Value(), "one two X"; got != want {
+		t.Fatalf("expected win32 raw-input selection replacement %q, got %q", want, got)
+	}
+}
+
+func TestProgramRawInputWin32HomeEndSelectionReplace(t *testing.T) {
+	t.Parallel()
+
+	input := append([]byte("abc"), []byte(win32KeyPress(36, 0x0110)+"X\x03")...)
+	finalModel := runProgramRawInput(t, input)
+
+	if got, want := finalModel.input.Value(), "X"; got != want {
+		t.Fatalf("expected win32 shift+home replacement %q, got %q", want, got)
+	}
+}
+
+func TestProgramRawInputWin32WordLeftAtStartDoesNotHang(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramRawInput(t, []byte(win32KeyPress(37, 0x0108)+"\x03"))
+
+	if got := finalModel.input.Value(); got != "" {
+		t.Fatalf("expected empty input to stay empty, got %q", got)
+	}
+}
+
 func runProgramScript(t *testing.T, msgs ...tea.Msg) *model {
 	t.Helper()
 
@@ -152,4 +207,59 @@ func runProgramScript(t *testing.T, msgs ...tea.Msg) *model {
 	}
 
 	return nil
+}
+
+func runProgramRawInput(t *testing.T, input []byte) *model {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+
+	m := newModel(copilot.NewMockAdapter())
+	p := tea.NewProgram(
+		m,
+		tea.WithContext(ctx),
+		tea.WithInput(bytes.NewReader(input)),
+		tea.WithOutput(io.Discard),
+		tea.WithoutRenderer(),
+		tea.WithoutSignalHandler(),
+	)
+
+	type runResult struct {
+		model tea.Model
+		err   error
+	}
+
+	results := make(chan runResult, 1)
+	go func() {
+		finalModel, err := p.Run()
+		results <- runResult{model: finalModel, err: err}
+	}()
+
+	p.Send(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	select {
+	case result := <-results:
+		if result.err != nil {
+			t.Fatalf("program exited with error: %v", result.err)
+		}
+
+		finalModel, ok := result.model.(*model)
+		if !ok {
+			t.Fatalf("expected *model, got %T", result.model)
+		}
+
+		return finalModel
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			t.Fatal("program did not process raw-input script before timeout")
+		}
+		t.Fatalf("program context ended unexpectedly: %v", ctx.Err())
+	}
+
+	return nil
+}
+
+func win32KeyPress(vk uint16, controlKeyState uint32) string {
+	return fmt.Sprintf("\x1b[%d;0;0;1;%d;1_", vk, controlKeyState)
 }

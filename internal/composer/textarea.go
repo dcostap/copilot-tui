@@ -63,6 +63,10 @@ type KeyMap struct {
 	PageUp                  key.Binding
 	PageDown                key.Binding
 	Paste                   key.Binding
+	SelectInputBegin        key.Binding
+	SelectInputEnd          key.Binding
+	SelectLineEnd           key.Binding
+	SelectLineStart         key.Binding
 	SelectWordBackward      key.Binding
 	SelectWordForward       key.Binding
 	WordBackward            key.Binding
@@ -98,11 +102,15 @@ func DefaultKeyMap() KeyMap {
 		InsertNewline:           key.NewBinding(key.WithKeys("enter", "ctrl+m"), key.WithHelp("enter", "insert newline")),
 		DeleteCharacterBackward: key.NewBinding(key.WithKeys("backspace", "ctrl+h"), key.WithHelp("backspace", "delete character backward")),
 		DeleteCharacterForward:  key.NewBinding(key.WithKeys("delete", "ctrl+d"), key.WithHelp("delete", "delete character forward")),
+		SelectLineStart:         key.NewBinding(key.WithKeys("shift+home"), key.WithHelp("shift+home", "select line start")),
+		SelectLineEnd:           key.NewBinding(key.WithKeys("shift+end"), key.WithHelp("shift+end", "select line end")),
 		LineStart:               key.NewBinding(key.WithKeys("home", "ctrl+a"), key.WithHelp("home", "line start")),
 		LineEnd:                 key.NewBinding(key.WithKeys("end", "ctrl+e"), key.WithHelp("end", "line end")),
 		PageUp:                  key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "page up")),
 		PageDown:                key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdown", "page down")),
 		Paste:                   key.NewBinding(key.WithKeys("ctrl+v"), key.WithHelp("ctrl+v", "paste")),
+		SelectInputBegin:        key.NewBinding(key.WithKeys("ctrl+shift+home"), key.WithHelp("ctrl+shift+home", "select input begin")),
+		SelectInputEnd:          key.NewBinding(key.WithKeys("ctrl+shift+end"), key.WithHelp("ctrl+shift+end", "select input end")),
 		InputBegin:              key.NewBinding(key.WithKeys("alt+<", "ctrl+home"), key.WithHelp("alt+<", "input begin")),
 		InputEnd:                key.NewBinding(key.WithKeys("alt+>", "ctrl+end"), key.WithHelp("alt+>", "input end")),
 
@@ -508,6 +516,10 @@ func (m *Model) insertRunesFromUserInput(runes []rune) {
 	// clipboard. This avoids bugs due to e.g. tab characters and
 	// whatnot.
 	runes = m.san().Sanitize(runes)
+
+	if len(runes) == 0 {
+		return
+	}
 
 	if m.CharLimit > 0 {
 		availSpace := m.CharLimit - (m.Length() - m.selectionLength())
@@ -1112,7 +1124,11 @@ func (m *Model) characterLeft(insideLine bool) {
 // so as not to reveal word breaks in the masked input.
 func (m *Model) wordLeft() {
 	for {
+		prevRow, prevCol := m.row, m.col
 		m.characterLeft(true /* insideLine */)
+		if m.row == prevRow && m.col == prevCol {
+			return
+		}
 		if m.col < len(m.value[m.row]) && !unicode.IsSpace(m.value[m.row][m.col]) {
 			break
 		}
@@ -1380,6 +1396,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.insertRunesFromUserInput([]rune(msg.Content))
 	case tea.KeyPressMsg:
 		switch {
+		case key.Matches(msg, m.KeyMap.SelectInputBegin):
+			m.updateSelection(m.MoveToBegin)
+		case key.Matches(msg, m.KeyMap.SelectInputEnd):
+			m.updateSelection(m.MoveToEnd)
+		case key.Matches(msg, m.KeyMap.SelectLineEnd):
+			m.updateSelection(m.CursorEnd)
+		case key.Matches(msg, m.KeyMap.SelectLineStart):
+			m.updateSelection(m.CursorStart)
 		case key.Matches(msg, m.KeyMap.SelectWordForward):
 			m.updateSelection(m.wordRight)
 		case key.Matches(msg, m.KeyMap.SelectCharacterForward):
