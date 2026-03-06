@@ -1989,6 +1989,33 @@ func TestSelectionReplacesSelectedWord(t *testing.T) {
 	}
 }
 
+func TestSelectionMotionDoesNotDeleteText(t *testing.T) {
+	t.Run("shift left", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea = sendString(textarea, "abc")
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModShift, Text: "shift+left"})
+
+		if got, want := textarea.Value(), "abc"; got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("ctrl shift left", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea = sendString(textarea, "one two three")
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl | tea.ModShift, Text: "ctrl+shift+left"})
+
+		if got, want := textarea.Value(), "one two three"; got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+		if !textarea.hasSelection() {
+			t.Fatal("expected selection to become active")
+		}
+	})
+}
+
 func TestSelectionBackspaceDeletesRange(t *testing.T) {
 	textarea := newTextArea()
 	textarea = sendString(textarea, "one two")

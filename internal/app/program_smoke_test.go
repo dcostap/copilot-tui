@@ -74,6 +74,33 @@ func TestProgramSelectionReplaceAndQuit(t *testing.T) {
 	}
 }
 
+func TestProgramSelectionMotionIsNonDestructive(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramScript(t,
+		tea.WindowSizeMsg{Width: 80, Height: 24},
+		tea.KeyPressMsg{Code: 'o', Text: "o"},
+		tea.KeyPressMsg{Code: 'n', Text: "n"},
+		tea.KeyPressMsg{Code: 'e', Text: "e"},
+		tea.KeyPressMsg{Code: ' ', Text: " "},
+		tea.KeyPressMsg{Code: 't', Text: "t"},
+		tea.KeyPressMsg{Code: 'w', Text: "w"},
+		tea.KeyPressMsg{Code: 'o', Text: "o"},
+		tea.KeyPressMsg{Code: ' ', Text: " "},
+		tea.KeyPressMsg{Code: 't', Text: "t"},
+		tea.KeyPressMsg{Code: 'h', Text: "h"},
+		tea.KeyPressMsg{Code: 'r', Text: "r"},
+		tea.KeyPressMsg{Code: 'e', Text: "e"},
+		tea.KeyPressMsg{Code: 'e', Text: "e"},
+		tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl | tea.ModShift},
+		tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+	)
+
+	if got, want := finalModel.input.Value(), "one two three"; got != want {
+		t.Fatalf("expected selection motion to preserve %q, got %q", want, got)
+	}
+}
+
 func runProgramScript(t *testing.T, msgs ...tea.Msg) *model {
 	t.Helper()
 
