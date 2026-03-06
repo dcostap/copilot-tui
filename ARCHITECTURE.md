@@ -7,10 +7,11 @@ Read IDEA.md
 ## Locked stack for v1
 
 - `charm.land/bubbletea/v2`
-- `charm.land/bubbles/v2` (`textarea`, `viewport`, `help`, `key`)
+- `charm.land/bubbles/v2` (`viewport`, `help`, `key`)
 - `charm.land/lipgloss/v2`
 - `github.com/charmbracelet/glamour`
 - `github.com/github/copilot-sdk/go` (behind internal adapter)
+- `internal/composer` (app-owned fork of `bubbles/textarea`)
 
 Dependency note:
 - keep source imports on the upstream `charm.land/...` paths,
@@ -74,7 +75,7 @@ This lets us test UI behavior deeply without making real Copilot calls or spendi
 1. Build the full TUI using `mockAdapter` only.
 2. Stream deterministic fake content (lorem, markdown blocks, tool events, errors, retries).
 3. Validate:
-   - input ergonomics (`textarea` behavior),
+   - input ergonomics (`composer` behavior),
    - scroll behavior (`viewport`),
    - message grouping,
    - reasoning/tool event rendering,
@@ -133,7 +134,7 @@ Optional palette actions:
 
 ## Markdown/input specifics
 
-- Main prompt: `bubbles/textarea` (not `textinput`).
+- Main prompt: `internal/composer` (derived from `bubbles/textarea`, not `textinput`).
 - Enter submits when not in a modal; Shift+Enter inserts newline.
 - For markdown:
   - keep raw text buffer per message,

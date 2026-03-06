@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/textarea"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/glamour"
 
+	"copilot-tui/internal/composer"
 	"copilot-tui/internal/copilot"
 )
 
@@ -27,7 +27,7 @@ type model struct {
 	adapter copilot.Adapter
 	events  <-chan copilot.Event
 
-	input    textarea.Model
+	input    composer.Model
 	viewport viewport.Model
 
 	styles styleSet
@@ -53,9 +53,9 @@ func New() tea.Model {
 }
 
 func newModel(adapter copilot.Adapter) *model {
-	input := textarea.New()
+	input := composer.New()
 	input.Placeholder = "Type a prompt..."
-	input.SetPromptFunc(2, func(info textarea.PromptInfo) string {
+	input.SetPromptFunc(2, func(info composer.PromptInfo) string {
 		if info.LineNumber == 0 {
 			return "› "
 		}
@@ -96,7 +96,7 @@ func (m *model) Init() tea.Cmd {
 	if err := m.adapter.Start(context.Background()); err != nil {
 		m.status = fmt.Sprintf("adapter start failed: %v", err)
 	}
-	return tea.Batch(textarea.Blink, waitForAdapterEvent(m.events))
+	return tea.Batch(composer.Blink, waitForAdapterEvent(m.events))
 }
 
 func (m *model) applyLayout() {
