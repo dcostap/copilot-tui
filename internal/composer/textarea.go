@@ -47,6 +47,8 @@ type (
 type KeyMap struct {
 	CharacterBackward       key.Binding
 	CharacterForward        key.Binding
+	SelectCharacterBackward key.Binding
+	SelectCharacterForward  key.Binding
 	DeleteAfterCursor       key.Binding
 	DeleteBeforeCursor      key.Binding
 	DeleteCharacterBackward key.Binding
@@ -61,6 +63,8 @@ type KeyMap struct {
 	PageUp                  key.Binding
 	PageDown                key.Binding
 	Paste                   key.Binding
+	SelectWordBackward      key.Binding
+	SelectWordForward       key.Binding
 	WordBackward            key.Binding
 	WordForward             key.Binding
 	InputBegin              key.Binding
@@ -79,8 +83,12 @@ func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		CharacterForward:        key.NewBinding(key.WithKeys("right", "ctrl+f"), key.WithHelp("right", "character forward")),
 		CharacterBackward:       key.NewBinding(key.WithKeys("left", "ctrl+b"), key.WithHelp("left", "character backward")),
+		SelectCharacterForward:  key.NewBinding(key.WithKeys("shift+right"), key.WithHelp("shift+right", "select character forward")),
+		SelectCharacterBackward: key.NewBinding(key.WithKeys("shift+left"), key.WithHelp("shift+left", "select character backward")),
 		WordForward:             key.NewBinding(key.WithKeys("ctrl+right", "alt+right", "alt+f"), key.WithHelp("ctrl+right", "word forward")),
 		WordBackward:            key.NewBinding(key.WithKeys("ctrl+left", "alt+left", "alt+b"), key.WithHelp("ctrl+left", "word backward")),
+		SelectWordForward:       key.NewBinding(key.WithKeys("ctrl+shift+right"), key.WithHelp("ctrl+shift+right", "select word forward")),
+		SelectWordBackward:      key.NewBinding(key.WithKeys("ctrl+shift+left"), key.WithHelp("ctrl+shift+left", "select word backward")),
 		LineNext:                key.NewBinding(key.WithKeys("down", "ctrl+n"), key.WithHelp("down", "next line")),
 		LinePrevious:            key.NewBinding(key.WithKeys("up", "ctrl+p"), key.WithHelp("up", "previous line")),
 		DeleteWordBackward:      key.NewBinding(key.WithKeys("alt+backspace", "ctrl+w"), key.WithHelp("alt+backspace", "delete word backward")),
@@ -191,6 +199,7 @@ type Styles struct {
 type StyleState struct {
 	Base             lipgloss.Style
 	Text             lipgloss.Style
+	Selection        lipgloss.Style
 	LineNumber       lipgloss.Style
 	CursorLineNumber lipgloss.Style
 	CursorLine       lipgloss.Style
@@ -228,6 +237,10 @@ func (s StyleState) computedPrompt() lipgloss.Style {
 
 func (s StyleState) computedText() lipgloss.Style {
 	return s.Text.Inherit(s.Base).Inline(true)
+}
+
+func (s StyleState) computedSelection() lipgloss.Style {
+	return s.Selection.Inherit(s.Base).Inline(true)
 }
 
 // line is the input to the text wrapping function. This is stored in a struct
@@ -325,6 +338,12 @@ type Model struct {
 	// Cursor row.
 	row int
 
+	// Selection anchor. The active cursor position is always the other end of the
+	// selection; when inactive, these values are ignored.
+	selectionActive bool
+	selectionRow    int
+	selectionCol    int
+
 	// Last character offset, used to maintain state when the cursor is moved
 	// vertically such that we can maintain the same navigating position.
 	lastCharOffset int
@@ -335,6 +354,11 @@ type Model struct {
 
 	// rune sanitizer for input.
 	rsan runeutil.Sanitizer
+}
+
+type textPos struct {
+	row int
+	col int
 }
 
 // New creates a new model with default settings.
@@ -386,6 +410,7 @@ func DefaultStyles(isDark bool) Styles {
 		LineNumber:       lipgloss.NewStyle().Foreground(lightDark(lipgloss.Color("249"), lipgloss.Color("7"))),
 		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
 		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
+		Selection:        lipgloss.NewStyle().Reverse(true),
 		Text:             lipgloss.NewStyle(),
 	}
 	s.Blurred = StyleState{
@@ -396,6 +421,7 @@ func DefaultStyles(isDark bool) Styles {
 		LineNumber:       lipgloss.NewStyle().Foreground(lightDark(lipgloss.Color("249"), lipgloss.Color("7"))),
 		Placeholder:      lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
 		Prompt:           lipgloss.NewStyle().Foreground(lipgloss.Color("7")),
+		Selection:        lipgloss.NewStyle().Reverse(true),
 		Text:             lipgloss.NewStyle().Foreground(lightDark(lipgloss.Color("245"), lipgloss.Color("7"))),
 	}
 	s.Cursor = CursorStyle{
@@ -484,7 +510,7 @@ func (m *Model) insertRunesFromUserInput(runes []rune) {
 	runes = m.san().Sanitize(runes)
 
 	if m.CharLimit > 0 {
-		availSpace := m.CharLimit - m.Length()
+		availSpace := m.CharLimit - (m.Length() - m.selectionLength())
 		// If the char limit's been reached, cancel.
 		if availSpace <= 0 {
 			return
@@ -525,6 +551,8 @@ func (m *Model) insertRunesFromUserInput(runes []rune) {
 		// Nothing left to insert.
 		return
 	}
+
+	m.deleteSelection()
 
 	// Save the remainder of the original line at the current
 	// cursor position.
@@ -603,6 +631,124 @@ func (m Model) Line() int {
 // Column returns the 0-indexed column position of the cursor.
 func (m Model) Column() int {
 	return m.col
+}
+
+func compareTextPos(a, b textPos) int {
+	switch {
+	case a.row < b.row:
+		return -1
+	case a.row > b.row:
+		return 1
+	case a.col < b.col:
+		return -1
+	case a.col > b.col:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func (m *Model) cursorPos() textPos {
+	return textPos{row: m.row, col: m.col}
+}
+
+func (m *Model) hasSelection() bool {
+	return m.selectionActive && (m.selectionRow != m.row || m.selectionCol != m.col)
+}
+
+func (m *Model) selectionBounds() (textPos, textPos, bool) {
+	if !m.hasSelection() {
+		return textPos{}, textPos{}, false
+	}
+	anchor := textPos{row: m.selectionRow, col: m.selectionCol}
+	cursor := m.cursorPos()
+	if compareTextPos(anchor, cursor) <= 0 {
+		return anchor, cursor, true
+	}
+	return cursor, anchor, true
+}
+
+func (m *Model) clearSelection() {
+	m.selectionActive = false
+	m.selectionRow = 0
+	m.selectionCol = 0
+}
+
+func (m *Model) beginSelection() {
+	if m.selectionActive {
+		return
+	}
+	m.selectionActive = true
+	m.selectionRow = m.row
+	m.selectionCol = m.col
+}
+
+func (m *Model) updateSelection(move func()) {
+	m.beginSelection()
+	move()
+	if !m.hasSelection() {
+		m.clearSelection()
+	}
+}
+
+func (m *Model) collapseSelectionToStart() bool {
+	start, _, ok := m.selectionBounds()
+	if !ok {
+		return false
+	}
+	m.row = start.row
+	m.SetCursorColumn(start.col)
+	m.clearSelection()
+	return true
+}
+
+func (m *Model) collapseSelectionToEnd() bool {
+	_, end, ok := m.selectionBounds()
+	if !ok {
+		return false
+	}
+	m.row = end.row
+	m.SetCursorColumn(end.col)
+	m.clearSelection()
+	return true
+}
+
+func (m *Model) selectionLength() int {
+	start, end, ok := m.selectionBounds()
+	if !ok {
+		return 0
+	}
+
+	if start.row == end.row {
+		return uniseg.StringWidth(string(m.value[start.row][start.col:end.col]))
+	}
+
+	length := uniseg.StringWidth(string(m.value[start.row][start.col:])) + uniseg.StringWidth(string(m.value[end.row][:end.col]))
+	for row := start.row + 1; row < end.row; row++ {
+		length += uniseg.StringWidth(string(m.value[row]))
+	}
+	return length + (end.row - start.row)
+}
+
+func (m *Model) deleteSelection() bool {
+	start, end, ok := m.selectionBounds()
+	if !ok {
+		return false
+	}
+
+	if start.row == end.row {
+		m.value[start.row] = append(m.value[start.row][:start.col], m.value[start.row][end.col:]...)
+	} else {
+		head := append([]rune{}, m.value[start.row][:start.col]...)
+		tail := append([]rune{}, m.value[end.row][end.col:]...)
+		m.value[start.row] = append(head, tail...)
+		m.value = append(m.value[:start.row+1], m.value[end.row+1:]...)
+	}
+
+	m.row = start.row
+	m.SetCursorColumn(start.col)
+	m.clearSelection()
+	return true
 }
 
 // ScrollYOffset returns the Y offset (top row) index of the current view, which
@@ -719,6 +865,49 @@ func (m Model) activeStyle() *StyleState {
 	return &m.styles.Blurred
 }
 
+func (m *Model) renderLineSlice(row, startCol int, text []rune, baseStyle lipgloss.Style) string {
+	if len(text) == 0 {
+		return ""
+	}
+
+	if !m.hasSelection() {
+		return baseStyle.Render(string(text))
+	}
+
+	start, end, _ := m.selectionBounds()
+	if row < start.row || row > end.row {
+		return baseStyle.Render(string(text))
+	}
+
+	selectionStart := 0
+	if row == start.row {
+		selectionStart = max(0, start.col-startCol)
+	}
+
+	selectionEnd := len(text)
+	if row == end.row {
+		selectionEnd = min(len(text), end.col-startCol)
+	}
+
+	if selectionStart >= selectionEnd || selectionStart >= len(text) || selectionEnd <= 0 {
+		return baseStyle.Render(string(text))
+	}
+
+	selectionStart = clamp(selectionStart, 0, len(text))
+	selectionEnd = clamp(selectionEnd, 0, len(text))
+	selectionStyle := m.activeStyle().computedSelection().Inherit(baseStyle).Inline(true)
+
+	var b strings.Builder
+	if selectionStart > 0 {
+		b.WriteString(baseStyle.Render(string(text[:selectionStart])))
+	}
+	b.WriteString(selectionStyle.Render(string(text[selectionStart:selectionEnd])))
+	if selectionEnd < len(text) {
+		b.WriteString(baseStyle.Render(string(text[selectionEnd:])))
+	}
+	return b.String()
+}
+
 // Focus sets the focus state on the model. When the model is in focus it can
 // receive keyboard input and the cursor will be hidden.
 func (m *Model) Focus() tea.Cmd {
@@ -738,6 +927,7 @@ func (m *Model) Reset() {
 	m.value = make([][]rune, minHeight, maxLines)
 	m.col = 0
 	m.row = 0
+	m.clearSelection()
 	m.viewport.GotoTop()
 	m.SetCursorColumn(0)
 }
@@ -1190,7 +1380,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.insertRunesFromUserInput([]rune(msg.Content))
 	case tea.KeyPressMsg:
 		switch {
+		case key.Matches(msg, m.KeyMap.SelectWordForward):
+			m.updateSelection(m.wordRight)
+		case key.Matches(msg, m.KeyMap.SelectCharacterForward):
+			m.updateSelection(m.characterRight)
+		case key.Matches(msg, m.KeyMap.SelectWordBackward):
+			m.updateSelection(m.wordLeft)
+		case key.Matches(msg, m.KeyMap.SelectCharacterBackward):
+			m.updateSelection(func() { m.characterLeft(false /* insideLine */) })
 		case key.Matches(msg, m.KeyMap.DeleteAfterCursor):
+			if m.deleteSelection() {
+				break
+			}
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			if m.col >= len(m.value[m.row]) {
 				m.mergeLineBelow(m.row)
@@ -1198,6 +1399,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 			m.deleteAfterCursor()
 		case key.Matches(msg, m.KeyMap.DeleteBeforeCursor):
+			if m.deleteSelection() {
+				break
+			}
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			if m.col <= 0 {
 				m.mergeLineAbove(m.row)
@@ -1205,6 +1409,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 			m.deleteBeforeCursor()
 		case key.Matches(msg, m.KeyMap.DeleteCharacterBackward):
+			if m.deleteSelection() {
+				break
+			}
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			if m.col <= 0 {
 				m.mergeLineAbove(m.row)
@@ -1217,6 +1424,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			}
 		case key.Matches(msg, m.KeyMap.DeleteCharacterForward):
+			if m.deleteSelection() {
+				break
+			}
 			if len(m.value[m.row]) > 0 && m.col < len(m.value[m.row]) {
 				m.value[m.row] = slices.Delete(m.value[m.row], m.col, m.col+1)
 			}
@@ -1225,12 +1435,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				break
 			}
 		case key.Matches(msg, m.KeyMap.DeleteWordBackward):
+			if m.deleteSelection() {
+				break
+			}
 			if m.col <= 0 {
 				m.mergeLineAbove(m.row)
 				break
 			}
 			m.deleteWordLeft()
 		case key.Matches(msg, m.KeyMap.DeleteWordForward):
+			if m.deleteSelection() {
+				break
+			}
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			if m.col >= len(m.value[m.row]) {
 				m.mergeLineBelow(m.row)
@@ -1241,41 +1457,66 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if m.MaxHeight > 0 && len(m.value) >= m.MaxHeight {
 				return m, nil
 			}
+			m.deleteSelection()
 			m.col = clamp(m.col, 0, len(m.value[m.row]))
 			m.splitLine(m.row, m.col)
 		case key.Matches(msg, m.KeyMap.LineEnd):
-			m.CursorEnd()
+			if !m.collapseSelectionToEnd() {
+				m.CursorEnd()
+			}
 		case key.Matches(msg, m.KeyMap.LineStart):
-			m.CursorStart()
+			if !m.collapseSelectionToStart() {
+				m.CursorStart()
+			}
 		case key.Matches(msg, m.KeyMap.CharacterForward):
-			m.characterRight()
+			if !m.collapseSelectionToEnd() {
+				m.characterRight()
+			}
 		case key.Matches(msg, m.KeyMap.LineNext):
+			m.clearSelection()
 			m.CursorDown()
 		case key.Matches(msg, m.KeyMap.WordForward):
-			m.wordRight()
+			if !m.collapseSelectionToEnd() {
+				m.wordRight()
+			}
 		case key.Matches(msg, m.KeyMap.Paste):
 			return m, Paste
 		case key.Matches(msg, m.KeyMap.CharacterBackward):
-			m.characterLeft(false /* insideLine */)
+			if !m.collapseSelectionToStart() {
+				m.characterLeft(false /* insideLine */)
+			}
 		case key.Matches(msg, m.KeyMap.LinePrevious):
+			m.clearSelection()
 			m.CursorUp()
 		case key.Matches(msg, m.KeyMap.WordBackward):
-			m.wordLeft()
+			if !m.collapseSelectionToStart() {
+				m.wordLeft()
+			}
 		case key.Matches(msg, m.KeyMap.InputBegin):
-			m.MoveToBegin()
+			if !m.collapseSelectionToStart() {
+				m.MoveToBegin()
+			}
 		case key.Matches(msg, m.KeyMap.InputEnd):
-			m.MoveToEnd()
+			if !m.collapseSelectionToEnd() {
+				m.MoveToEnd()
+			}
 		case key.Matches(msg, m.KeyMap.PageUp):
+			m.clearSelection()
 			m.PageUp()
 		case key.Matches(msg, m.KeyMap.PageDown):
+			m.clearSelection()
 			m.PageDown()
 		case key.Matches(msg, m.KeyMap.LowercaseWordForward):
+			m.deleteSelection()
 			m.lowercaseRight()
 		case key.Matches(msg, m.KeyMap.UppercaseWordForward):
+			m.deleteSelection()
 			m.uppercaseRight()
 		case key.Matches(msg, m.KeyMap.CapitalizeWordForward):
+			m.deleteSelection()
 			m.capitalizeRight()
 		case key.Matches(msg, m.KeyMap.TransposeCharacterBackward):
+			m.deleteSelection()
 			m.transposeLeft()
 
 		default:
@@ -1332,6 +1573,7 @@ func (m *Model) view() string {
 	displayLine := 0
 	for l, line := range m.value {
 		wrappedLines := m.memoizedWrap(line, m.width)
+		wrappedStart := 0
 
 		if m.row == l {
 			style = styles.computedCursorLine()
@@ -1340,6 +1582,7 @@ func (m *Model) view() string {
 		}
 
 		for wl, wrappedLine := range wrappedLines {
+			wrappedLen := len(wrappedLine)
 			prompt := m.promptView(displayLine)
 			prompt = styles.computedPrompt().Render(prompt)
 			s.WriteString(style.Render(prompt))
@@ -1376,21 +1619,22 @@ func (m *Model) view() string {
 				padding -= m.width - strwidth
 			}
 			if m.row == l && lineInfo.RowOffset == wl {
-				s.WriteString(style.Render(string(wrappedLine[:lineInfo.ColumnOffset])))
+				s.WriteString(m.renderLineSlice(l, wrappedStart, wrappedLine[:lineInfo.ColumnOffset], style))
 				if m.col >= len(line) && lineInfo.CharOffset >= m.width {
 					m.virtualCursor.SetChar(" ")
 					s.WriteString(m.virtualCursor.View())
 				} else {
 					m.virtualCursor.SetChar(string(wrappedLine[lineInfo.ColumnOffset]))
 					s.WriteString(style.Render(m.virtualCursor.View()))
-					s.WriteString(style.Render(string(wrappedLine[lineInfo.ColumnOffset+1:])))
+					s.WriteString(m.renderLineSlice(l, wrappedStart+lineInfo.ColumnOffset+1, wrappedLine[lineInfo.ColumnOffset+1:], style))
 				}
 			} else {
-				s.WriteString(style.Render(string(wrappedLine)))
+				s.WriteString(m.renderLineSlice(l, wrappedStart, wrappedLine, style))
 			}
 			s.WriteString(style.Render(strings.Repeat(" ", max(0, padding))))
 			s.WriteRune('\n')
 			newLines++
+			wrappedStart += wrappedLen
 		}
 	}
 

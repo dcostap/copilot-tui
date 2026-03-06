@@ -1974,6 +1974,51 @@ func TestWord(t *testing.T) {
 	})
 }
 
+func TestSelectionReplacesSelectedWord(t *testing.T) {
+	textarea := newTextArea()
+	textarea = sendString(textarea, "one two three")
+
+	textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl | tea.ModShift, Text: "ctrl+shift+left"})
+	textarea, _ = textarea.Update(keyPress('X'))
+
+	if got, want := textarea.Value(), "one two X"; got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+	if textarea.hasSelection() {
+		t.Fatal("selection should be cleared after replacement")
+	}
+}
+
+func TestSelectionBackspaceDeletesRange(t *testing.T) {
+	textarea := newTextArea()
+	textarea = sendString(textarea, "one two")
+
+	for _, k := range []tea.KeyPressMsg{
+		{Code: tea.KeyLeft, Mod: tea.ModCtrl | tea.ModShift, Text: "ctrl+shift+left"},
+		{Code: tea.KeyBackspace, Text: "backspace"},
+	} {
+		textarea, _ = textarea.Update(k)
+	}
+
+	if got, want := textarea.Value(), "one "; got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
+func TestSelectionShiftLeftTracksAnchor(t *testing.T) {
+	textarea := newTextArea()
+	textarea = sendString(textarea, "abc")
+
+	textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModShift, Text: "shift+left"})
+
+	if !textarea.hasSelection() {
+		t.Fatal("expected selection to become active")
+	}
+	if textarea.selectionCol != 3 || textarea.col != 2 {
+		t.Fatalf("expected anchor at 3 and cursor at 2, got anchor=%d cursor=%d", textarea.selectionCol, textarea.col)
+	}
+}
+
 func newTextArea() Model {
 	textarea := New()
 
