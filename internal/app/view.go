@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+
 	"copilot-tui/internal/ui"
 )
 
-func (m *model) View() string {
+func (m *model) View() tea.View {
 	if m.width <= 0 || m.height <= 0 {
-		return "Starting..."
+		view := tea.NewView("Starting...")
+		view.AltScreen = true
+		return view
 	}
 
 	parts := []string{
@@ -20,7 +24,9 @@ func (m *model) View() string {
 		parts = append(parts, m.renderPalette(), m.renderSeparator())
 	}
 	parts = append(parts, m.input.View(), m.renderFooter())
-	return strings.Join(parts, "\n")
+	view := tea.NewView(strings.Join(parts, "\n"))
+	view.AltScreen = true
+	return view
 }
 
 func (m *model) renderPalette() string {

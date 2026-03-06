@@ -4,18 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"copilot-tui/internal/app"
 )
 
 func main() {
-	program := tea.NewProgram(
-		app.New(),
-		tea.WithAltScreen(),
-	)
+	program := tea.NewProgram(app.New())
 
-	if err := program.Start(); err != nil {
+	if _, err := program.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

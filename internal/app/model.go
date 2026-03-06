@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textarea"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textarea"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/lipgloss"
 
 	"copilot-tui/internal/copilot"
 )
@@ -54,24 +54,26 @@ func New() tea.Model {
 func newModel(adapter copilot.Adapter) *model {
 	input := textarea.New()
 	input.Placeholder = "Type a prompt..."
-	input.SetPromptFunc(2, func(lineIdx int) string {
-		if lineIdx == 0 {
+	input.SetPromptFunc(2, func(info textarea.PromptInfo) string {
+		if info.LineNumber == 0 {
 			return "› "
 		}
 		return "  "
 	})
-	input.FocusedStyle.CursorLine = lipgloss.NewStyle()
-	input.BlurredStyle.CursorLine = lipgloss.NewStyle()
-	input.FocusedStyle.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Bold(true)
-	input.BlurredStyle.Prompt = input.FocusedStyle.Prompt
-	input.FocusedStyle.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
-	input.BlurredStyle.Placeholder = input.FocusedStyle.Placeholder
+	inputStyles := input.Styles()
+	inputStyles.Focused.CursorLine = lipgloss.NewStyle()
+	inputStyles.Blurred.CursorLine = lipgloss.NewStyle()
+	inputStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Bold(true)
+	inputStyles.Blurred.Prompt = inputStyles.Focused.Prompt
+	inputStyles.Focused.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+	inputStyles.Blurred.Placeholder = inputStyles.Focused.Placeholder
+	input.SetStyles(inputStyles)
 	input.Focus()
 	input.CharLimit = 0
 	input.ShowLineNumbers = false
 	input.SetHeight(inputHeight)
 
-	vp := viewport.New(1, 1)
+	vp := viewport.New()
 
 	m := &model{
 		adapter:         adapter,
@@ -116,8 +118,8 @@ func (m *model) applyLayout() {
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
-	m.viewport.Width = innerWidth
-	m.viewport.Height = timelinePanelHeight
+	m.viewport.SetWidth(innerWidth)
+	m.viewport.SetHeight(timelinePanelHeight)
 	m.input.SetWidth(innerWidth)
 	m.input.SetHeight(inputHeight)
 }
@@ -212,7 +214,7 @@ func (m *model) queueRender(force bool) tea.Cmd {
 }
 
 func (m *model) ensureMarkdownRenderer() {
-	wrap := m.viewport.Width
+	wrap := m.viewport.Width()
 	if wrap < 20 {
 		wrap = 20
 	}
@@ -293,7 +295,7 @@ func (m *model) renderNow() {
 	m.lastRender = time.Now()
 }
 
-func (m *model) updatePaletteKeys(msg tea.KeyMsg) tea.Cmd {
+func (m *model) updatePaletteKeys(msg tea.KeyPressMsg) tea.Cmd {
 	switch msg.String() {
 	case "esc", "ctrl+p":
 		m.showPalette = false

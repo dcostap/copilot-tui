@@ -6,9 +6,9 @@ Read IDEA.md
 
 ## Locked stack for v1
 
-- `github.com/charmbracelet/bubbletea`
-- `github.com/charmbracelet/bubbles` (`textarea`, `viewport`, `help`, `key`)
-- `github.com/charmbracelet/lipgloss`
+- `charm.land/bubbletea/v2`
+- `charm.land/bubbles/v2` (`textarea`, `viewport`, `help`, `key`)
+- `charm.land/lipgloss/v2`
 - `github.com/charmbracelet/glamour`
 - `github.com/github/copilot-sdk/go` (behind internal adapter)
 
