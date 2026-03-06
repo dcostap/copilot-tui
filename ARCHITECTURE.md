@@ -12,6 +12,13 @@ Read IDEA.md
 - `github.com/charmbracelet/glamour`
 - `github.com/github/copilot-sdk/go` (behind internal adapter)
 
+Dependency note:
+- keep source imports on the upstream `charm.land/...` paths,
+- pin the Windows input fix by replacing `charm.land/bubbletea/v2` in `go.mod`
+  with `github.com/dcostap/bubbletea/v2`,
+- let the Bubble Tea fork pull `github.com/dcostap/ultraviolet` transitively, so
+  fresh clones do not need a machine-local `go.work` sibling-repo layout.
+
 Optional later:
 - `github.com/yuin/goldmark` (advanced markdown control),
 - `github.com/alecthomas/chroma/v2` (custom code highlighting),
