@@ -3,8 +3,8 @@ package app
 import "github.com/charmbracelet/lipgloss"
 
 type styleSet struct {
-	Panel           lipgloss.Style
 	Footer          lipgloss.Style
+	Meta            lipgloss.Style
 	Palette         lipgloss.Style
 	PaletteSelected lipgloss.Style
 	UserPrefix      lipgloss.Style
@@ -15,23 +15,24 @@ type styleSet struct {
 
 func newStyles() styleSet {
 	return styleSet{
-		Panel: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()),
 		Footer: lipgloss.NewStyle().
-			Faint(true),
+			Faint(true).
+			Foreground(lipgloss.Color("244")),
+		Meta: lipgloss.NewStyle().
+			Faint(true).
+			Foreground(lipgloss.Color("242")),
 		Palette: lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			Foreground(lipgloss.Color("212")),
+			Foreground(lipgloss.Color("245")),
 		PaletteSelected: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("42")).
+			Foreground(lipgloss.Color("255")).
 			Bold(true),
 		UserPrefix: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("39")).
+			Foreground(lipgloss.Color("252")).
 			Bold(true),
 		ReasoningPrefix: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("244")),
+			Foreground(lipgloss.Color("246")),
 		ToolPrefix: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("220")).
+			Foreground(lipgloss.Color("250")).
 			Bold(true),
 		ErrorPrefix: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).

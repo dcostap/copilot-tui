@@ -26,11 +26,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case tea.MouseMsg:
-		var cmd tea.Cmd
-		m.viewport, cmd = m.viewport.Update(msg)
-		return m, cmd
-
 	case tea.KeyMsg:
 		if m.showPalette {
 			return m, m.updatePaletteKeys(msg)
@@ -47,12 +42,15 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rebuildPalette()
 			return m, nil
 
-		case "enter":
-			return m, m.submitPrompt()
-
-		case "shift+enter":
+		case "shift+enter", "ctrl+j":
 			m.input.InsertString("\n")
 			return m, nil
+
+		case "ctrl+s":
+			return m, m.submitPrompt()
+
+		case "enter":
+			return m, m.submitPrompt()
 
 		default:
 			var cmd tea.Cmd

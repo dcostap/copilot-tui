@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
 
 	"copilot-tui/internal/copilot"
 )
@@ -53,6 +54,18 @@ func New() tea.Model {
 func newModel(adapter copilot.Adapter) *model {
 	input := textarea.New()
 	input.Placeholder = "Type a prompt..."
+	input.SetPromptFunc(2, func(lineIdx int) string {
+		if lineIdx == 0 {
+			return "› "
+		}
+		return "  "
+	})
+	input.FocusedStyle.CursorLine = lipgloss.NewStyle()
+	input.BlurredStyle.CursorLine = lipgloss.NewStyle()
+	input.FocusedStyle.Prompt = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Bold(true)
+	input.BlurredStyle.Prompt = input.FocusedStyle.Prompt
+	input.FocusedStyle.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+	input.BlurredStyle.Placeholder = input.FocusedStyle.Placeholder
 	input.Focus()
 	input.CharLimit = 0
 	input.ShowLineNumbers = false
@@ -67,7 +80,7 @@ func newModel(adapter copilot.Adapter) *model {
 		viewport:        vp,
 		styles:          newStyles(),
 		state:           NewConversationState(),
-		status:          "mock adapter ready",
+		status:          "ready",
 		currentScenario: "normal_markdown_stream",
 	}
 	m.rebuildPalette()
@@ -88,23 +101,23 @@ func (m *model) applyLayout() {
 	}
 
 	footerHeight := 1
-	inputPanelHeight := inputHeight + 2
-	timelinePanelHeight := m.height - footerHeight - inputPanelHeight
+	separatorHeight := 1
+	inputAreaHeight := inputHeight
+	paletteHeight := 0
+	if m.showPalette {
+		paletteHeight = len(m.paletteItems) + 2
+	}
+	timelinePanelHeight := m.height - footerHeight - separatorHeight - inputAreaHeight - paletteHeight
 	if timelinePanelHeight < 3 {
 		timelinePanelHeight = 3
 	}
 
-	innerWidth := m.width - 2
+	innerWidth := m.width
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
-	innerTimelineHeight := timelinePanelHeight - 2
-	if innerTimelineHeight < 1 {
-		innerTimelineHeight = 1
-	}
-
 	m.viewport.Width = innerWidth
-	m.viewport.Height = innerTimelineHeight
+	m.viewport.Height = timelinePanelHeight
 	m.input.SetWidth(innerWidth)
 	m.input.SetHeight(inputHeight)
 }
@@ -239,7 +252,7 @@ func (m *model) renderMarkdown(text string) string {
 
 func (m *model) timelineContent() string {
 	if len(m.state.Items) == 0 {
-		return "No messages yet.\nType a prompt below and press Enter."
+		return "No transcript yet.\nType below and press Enter."
 	}
 
 	var b strings.Builder
@@ -250,23 +263,23 @@ func (m *model) timelineContent() string {
 
 		switch item.Kind {
 		case TimelineUser:
-			b.WriteString(m.styles.UserPrefix.Render("You: "))
+			b.WriteString(m.styles.UserPrefix.Render("› "))
 			b.WriteString(item.Text)
 		case TimelineAssistant:
 			b.WriteString(m.renderMarkdown(item.Text))
 		case TimelineReasoning:
-			b.WriteString(m.styles.ReasoningPrefix.Render("[reasoning]"))
+			b.WriteString(m.styles.ReasoningPrefix.Render("• reasoning"))
 			b.WriteString("\n")
 			b.WriteString(m.renderMarkdown(item.Text))
 		case TimelineTool:
-			prefix := "[tool]"
+			prefix := "• tool"
 			if item.Tool != "" {
-				prefix = "[tool:" + item.Tool + "]"
+				prefix = "• " + item.Tool
 			}
 			b.WriteString(m.styles.ToolPrefix.Render(prefix + " "))
 			b.WriteString(item.Text)
 		case TimelineError:
-			b.WriteString(m.styles.ErrorPrefix.Render("[error] "))
+			b.WriteString(m.styles.ErrorPrefix.Render("x "))
 			b.WriteString(item.Text)
 		}
 	}
