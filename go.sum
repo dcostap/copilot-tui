@@ -56,6 +56,8 @@ github.com/dcostap/bubbletea/v2 v2.0.0-20260309141918-99bce0ef463d h1:YRJWiKKqOp
 github.com/dcostap/bubbletea/v2 v2.0.0-20260309141918-99bce0ef463d/go.mod h1:eXIoki1oyyIXkIpez0+p+CWCtDcw/YiM4JLCh+5t20c=
 github.com/dcostap/bubbletea/v2 v2.0.0-20260309142626-8b5aa54b76a4 h1:FrZVJp8lxbdwACuCGdIBiXh/57VSHYslIQUMMq5ZBH0=
 github.com/dcostap/bubbletea/v2 v2.0.0-20260309142626-8b5aa54b76a4/go.mod h1:eXIoki1oyyIXkIpez0+p+CWCtDcw/YiM4JLCh+5t20c=
+github.com/dcostap/bubbletea/v2 v2.0.0-20260309145032-9f4408cbaa94 h1:zESi5VCFOci2yJEAkDeMyd2zwdKPN2PyAHOgpfhBvX0=
+github.com/dcostap/bubbletea/v2 v2.0.0-20260309145032-9f4408cbaa94/go.mod h1:UNxc1YBmPd86HtBxEu4Oof2KlsEfD0DbL8F3LTPUGDU=
 github.com/dcostap/ultraviolet v0.0.0-20260306115714-e76ff877e337 h1:OZCWT5qI5cKHzZjhIVa3FkI7kvy0E5rO3s9O0DOFvY0=
 github.com/dcostap/ultraviolet v0.0.0-20260306115714-e76ff877e337/go.mod h1:Eu9T1QBJEFNr2Q+OL5FlYP45O3aEj4mm6rybhVUwvKk=
 github.com/dcostap/ultraviolet v0.0.0-20260309122744-f3db740fa709 h1:8lgvFLxF52pKAPTooKw5LlVCMeMaFwzKdYz3Jf8KVtM=
@@ -66,6 +68,8 @@ github.com/dcostap/ultraviolet v0.0.0-20260309141110-09aaf8db9f1b h1:5t+TCT+sc5T
 github.com/dcostap/ultraviolet v0.0.0-20260309141110-09aaf8db9f1b/go.mod h1:Eu9T1QBJEFNr2Q+OL5FlYP45O3aEj4mm6rybhVUwvKk=
 github.com/dcostap/ultraviolet v0.0.0-20260309141847-30bbc5a128c5 h1:8kdBt7VXur4ivzJgHcBrB9Q2gmEVe4BXW0lUKRxC0Xo=
 github.com/dcostap/ultraviolet v0.0.0-20260309141847-30bbc5a128c5/go.mod h1:Eu9T1QBJEFNr2Q+OL5FlYP45O3aEj4mm6rybhVUwvKk=
+github.com/dcostap/ultraviolet v0.0.0-20260309145007-6c1f9b477d87 h1:S/z8RmCfXkm75zZQ6kOGW8y/QNclz3kTfUl6kneOz4Q=
+github.com/dcostap/ultraviolet v0.0.0-20260309145007-6c1f9b477d87/go.mod h1:Eu9T1QBJEFNr2Q+OL5FlYP45O3aEj4mm6rybhVUwvKk=
 github.com/dlclark/regexp2 v1.11.0 h1:G/nrcoOa7ZXlpoa/91N3X7mM3r8eIlMBBJZvsz/mxKI=
 github.com/dlclark/regexp2 v1.11.0/go.mod h1:DHkYz0B9wPfa6wondMfaivmHpzrQ3v9q8cnmRbL6yW8=
 github.com/gorilla/css v1.0.1 h1:ntNaBIghp6JmvWnxbZKANoLyuXTPZ4cAMlo6RyhlbO8=
