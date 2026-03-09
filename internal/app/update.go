@@ -47,6 +47,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.input, cmd = m.input.Update(msg)
 		return m, m.scheduleInputFlushTick(cmd)
 
+	case tea.MouseWheelMsg:
+		m.applyLayout()
+		m.viewport.SetContent(m.timelineContent())
+		vp, cmd := m.viewport.Update(msg)
+		m.viewport = vp
+		return m, cmd
+
 	case tea.KeyPressMsg:
 		if m.showPalette {
 			m.input.FlushPasteBurstBeforeExternalInput()

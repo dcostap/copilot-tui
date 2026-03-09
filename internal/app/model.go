@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	inputHeight    = 3
-	renderThrottle = 120 * time.Millisecond
+	inputMinHeight    = 1
+	timelineMinHeight = 3
+	renderThrottle    = 120 * time.Millisecond
 )
 
 type model struct {
@@ -76,7 +77,7 @@ func newModel(adapter copilot.Adapter) *model {
 	input.Focus()
 	input.CharLimit = 0
 	input.ShowLineNumbers = false
-	input.SetHeight(inputHeight)
+	input.SetHeight(inputMinHeight)
 
 	vp := viewport.New()
 	tracer, traceErr := newInputTracerFromEnv()
@@ -119,24 +120,34 @@ func (m *model) applyLayout() {
 
 	footerHeight := 1
 	separatorHeight := 1
-	inputAreaHeight := inputHeight
 	paletteHeight := 0
 	if m.showPalette {
 		paletteHeight = len(m.paletteItems) + 2
-	}
-	timelinePanelHeight := m.height - footerHeight - separatorHeight - inputAreaHeight - paletteHeight
-	if timelinePanelHeight < 3 {
-		timelinePanelHeight = 3
 	}
 
 	innerWidth := m.width
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
+	m.input.SetWidth(innerWidth)
+
+	availableHeight := m.height - footerHeight - separatorHeight - paletteHeight
+	maxInputHeight := max(inputMinHeight, availableHeight-timelineMinHeight)
+	inputAreaHeight := m.input.DisplayLineCount()
+	if inputAreaHeight < inputMinHeight {
+		inputAreaHeight = inputMinHeight
+	}
+	if inputAreaHeight > maxInputHeight {
+		inputAreaHeight = maxInputHeight
+	}
+	timelinePanelHeight := availableHeight - inputAreaHeight
+	if timelinePanelHeight < timelineMinHeight {
+		timelinePanelHeight = timelineMinHeight
+	}
+
 	m.viewport.SetWidth(innerWidth)
 	m.viewport.SetHeight(timelinePanelHeight)
-	m.input.SetWidth(innerWidth)
-	m.input.SetHeight(inputHeight)
+	m.input.SetHeight(inputAreaHeight)
 }
 
 func (m *model) rebuildPalette() {
@@ -312,6 +323,7 @@ func (m *model) timelineContent() string {
 }
 
 func (m *model) renderNow() {
+	m.applyLayout()
 	m.viewport.SetContent(m.timelineContent())
 	m.viewport.GotoBottom()
 	m.lastRender = time.Now()

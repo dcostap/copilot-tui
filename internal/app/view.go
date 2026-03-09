@@ -10,6 +10,7 @@ import (
 )
 
 func (m *model) View() tea.View {
+	m.applyLayout()
 	if m.width <= 0 || m.height <= 0 {
 		view := tea.NewView("Starting...")
 		view.AltScreen = true

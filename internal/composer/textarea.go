@@ -645,6 +645,21 @@ func (m *Model) LineCount() int {
 	return len(m.value)
 }
 
+// DisplayLineCount returns the number of visible lines needed to render the
+// current value at the textarea's current width.
+func (m Model) DisplayLineCount() int {
+	if m.width <= 0 || len(m.value) == 0 {
+		return minHeight
+	}
+
+	lines := 0
+	for _, line := range m.value {
+		lines += max(1, len(m.memoizedWrap(line, m.width)))
+	}
+
+	return max(minHeight, lines)
+}
+
 // Line returns the 0-indexed row position of the cursor.
 func (m Model) Line() int {
 	return m.row
