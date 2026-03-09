@@ -2034,6 +2034,28 @@ func TestSelectionMotionDoesNotDeleteText(t *testing.T) {
 		}
 	})
 
+	t.Run("ctrl shift home", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("one\ntwo")
+		textarea.row = 1
+		textarea.col = 1
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyHome, Mod: tea.ModCtrl | tea.ModShift, Text: "ctrl+shift+home"})
+
+		if got, want := textarea.Value(), "one\ntwo"; got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+		if !textarea.hasSelection() {
+			t.Fatal("expected selection to become active")
+		}
+		if textarea.selectionRow != 1 || textarea.selectionCol != 1 {
+			t.Fatalf("expected anchor at row=1 col=1, got row=%d col=%d", textarea.selectionRow, textarea.selectionCol)
+		}
+		if textarea.row != 0 || textarea.col != 0 {
+			t.Fatalf("expected cursor at input start row=0 col=0, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
+
 	t.Run("ctrl shift end", func(t *testing.T) {
 		textarea := newTextArea()
 		textarea.SetValue("one\ntwo")
@@ -2135,6 +2157,20 @@ func TestSelectionHomeEndReplacement(t *testing.T) {
 		textarea, _ = textarea.Update(keyPress('X'))
 
 		if got, want := textarea.Value(), "Xc"; got != want {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("ctrl shift home replaces to input start", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("one\ntwo")
+		textarea.row = 1
+		textarea.col = 1
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyHome, Mod: tea.ModCtrl | tea.ModShift, Text: "ctrl+shift+home"})
+		textarea, _ = textarea.Update(keyPress('X'))
+
+		if got, want := textarea.Value(), "Xwo"; got != want {
 			t.Fatalf("expected %q, got %q", want, got)
 		}
 	})

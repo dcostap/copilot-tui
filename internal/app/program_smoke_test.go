@@ -141,6 +141,51 @@ func TestProgramSelectionMotionIsNonDestructive(t *testing.T) {
 	}
 }
 
+func TestProgramCtrlShiftHomeReplacesToInputStart(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramScript(t,
+		tea.WindowSizeMsg{Width: 80, Height: 24},
+		tea.KeyPressMsg{Code: 'o', Text: "o"},
+		tea.KeyPressMsg{Code: 'n', Text: "n"},
+		tea.KeyPressMsg{Code: 'e', Text: "e"},
+		tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModShift},
+		tea.KeyPressMsg{Code: 't', Text: "t"},
+		tea.KeyPressMsg{Code: 'w', Text: "w"},
+		tea.KeyPressMsg{Code: 'o', Text: "o"},
+		tea.KeyPressMsg{Code: tea.KeyHome, Mod: tea.ModCtrl | tea.ModShift},
+		tea.KeyPressMsg{Code: 'X', Text: "X"},
+		tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+	)
+
+	if got, want := finalModel.input.Value(), "X"; got != want {
+		t.Fatalf("expected ctrl+shift+home replacement %q, got %q", want, got)
+	}
+}
+
+func TestProgramCtrlShiftEndReplacesToInputEnd(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramScript(t,
+		tea.WindowSizeMsg{Width: 80, Height: 24},
+		tea.KeyPressMsg{Code: 'o', Text: "o"},
+		tea.KeyPressMsg{Code: 'n', Text: "n"},
+		tea.KeyPressMsg{Code: 'e', Text: "e"},
+		tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModShift},
+		tea.KeyPressMsg{Code: 't', Text: "t"},
+		tea.KeyPressMsg{Code: 'w', Text: "w"},
+		tea.KeyPressMsg{Code: 'o', Text: "o"},
+		tea.KeyPressMsg{Code: tea.KeyHome, Mod: tea.ModCtrl},
+		tea.KeyPressMsg{Code: tea.KeyEnd, Mod: tea.ModCtrl | tea.ModShift},
+		tea.KeyPressMsg{Code: 'X', Text: "X"},
+		tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+	)
+
+	if got, want := finalModel.input.Value(), "X"; got != want {
+		t.Fatalf("expected ctrl+shift+end replacement %q, got %q", want, got)
+	}
+}
+
 func TestProgramRawInputTypingAndQuit(t *testing.T) {
 	t.Parallel()
 
@@ -181,6 +226,28 @@ func TestProgramRawInputWin32HomeEndSelectionReplace(t *testing.T) {
 
 	if got, want := finalModel.input.Value(), "X"; got != want {
 		t.Fatalf("expected win32 shift+home replacement %q, got %q", want, got)
+	}
+}
+
+func TestProgramRawInputWin32CtrlShiftHomeReplacesWholeInput(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("one" + win32KeyPress(13, 0x0010) + "two" + win32KeyPress(36, 0x0118) + "X\x03")
+	finalModel := runProgramRawInput(t, input)
+
+	if got, want := finalModel.input.Value(), "X"; got != want {
+		t.Fatalf("expected win32 ctrl+shift+home replacement %q, got %q", want, got)
+	}
+}
+
+func TestProgramRawInputWin32CtrlShiftEndReplacesWholeInput(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("one" + win32KeyPress(13, 0x0010) + "two" + win32KeyPress(36, 0x0008) + win32KeyPress(35, 0x0118) + "X\x03")
+	finalModel := runProgramRawInput(t, input)
+
+	if got, want := finalModel.input.Value(), "X"; got != want {
+		t.Fatalf("expected win32 ctrl+shift+end replacement %q, got %q", want, got)
 	}
 }
 
