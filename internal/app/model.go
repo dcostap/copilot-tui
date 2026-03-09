@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -47,6 +48,7 @@ type model struct {
 
 	markdownRenderer  *glamour.TermRenderer
 	markdownWrapWidth int
+	tracer            *inputTracer
 }
 
 func New() tea.Model {
@@ -77,6 +79,14 @@ func newModel(adapter copilot.Adapter) *model {
 	input.SetHeight(inputHeight)
 
 	vp := viewport.New()
+	tracer, traceErr := newInputTracerFromEnv()
+	status := "ready"
+	if traceErr != nil {
+		status = fmt.Sprintf("input trace setup failed: %v", traceErr)
+		fmt.Fprintln(os.Stderr, status)
+	} else if tracer != nil {
+		status = "input trace enabled"
+	}
 
 	m := &model{
 		adapter:         adapter,
@@ -85,9 +95,10 @@ func newModel(adapter copilot.Adapter) *model {
 		viewport:        vp,
 		styles:          newStyles(),
 		state:           NewConversationState(),
-		status:          "ready",
+		status:          status,
 		currentScenario: "normal_markdown_stream",
 		useShiftEnter:   false,
+		tracer:          tracer,
 	}
 	m.rebuildPalette()
 	m.renderNow()
@@ -153,9 +164,16 @@ func (m *model) rebuildPalette() {
 func (m *model) submitPrompt() tea.Cmd {
 	prompt := strings.TrimSpace(m.input.Value())
 	if prompt == "" {
+		m.tracer.LogNote("submit ignored: empty prompt")
 		m.status = "empty prompt ignored"
 		return nil
 	}
+	m.tracer.LogNote(
+		"submit prompt len=%d runes=%d newlines=%d",
+		len(prompt),
+		len([]rune(prompt)),
+		countTraceNewlines(prompt),
+	)
 
 	m.state.AddUserPrompt(prompt)
 	m.input.SetValue("")

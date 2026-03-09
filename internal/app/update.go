@@ -2,11 +2,14 @@ package app
 
 import (
 	"context"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m.tracer.LogMsg(msg)
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -74,6 +77,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			if m.input.HandlePasteBurstEnter() {
+				m.tracer.LogNote("enter suppressed by paste-burst handling")
 				return m, m.scheduleInputFlushTick(nil)
 			}
 			m.input.FlushPasteBurstBeforeExternalInput()
@@ -100,6 +104,7 @@ func (m *model) scheduleInputFlushTick(cmd tea.Cmd) tea.Cmd {
 	}
 
 	m.inputFlushTick = true
+	m.tracer.LogNote("schedule input flush tick delay=%s", delay.Truncate(time.Microsecond))
 	tick := inputFlushTickCmd(delay)
 	if cmd == nil {
 		return tick
