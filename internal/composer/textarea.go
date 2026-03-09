@@ -810,6 +810,17 @@ func (m *Model) setCursorLineRelative(delta int) {
 	if delta == 0 {
 		return
 	}
+	if delta < 0 && m.row == 0 && m.LineInfo().RowOffset <= 0 {
+		m.CursorStart()
+		return
+	}
+	if delta > 0 {
+		lineInfo := m.LineInfo()
+		if m.row == len(m.value)-1 && lineInfo.RowOffset+1 >= lineInfo.Height {
+			m.CursorEnd()
+			return
+		}
+	}
 
 	li := m.LineInfo()
 	charOffset := max(m.lastCharOffset, li.CharOffset)

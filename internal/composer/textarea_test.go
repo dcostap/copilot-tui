@@ -2207,6 +2207,34 @@ func TestSelectionShiftDownReplacementAcrossLines(t *testing.T) {
 	}
 }
 
+func TestVerticalMotionAtInputEdgesMovesWithinCurrentLine(t *testing.T) {
+	t.Run("up at first line moves to line start", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("hello")
+		textarea.row = 0
+		textarea.col = 3
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyUp, Text: "up"})
+
+		if textarea.row != 0 || textarea.col != 0 {
+			t.Fatalf("expected cursor at line start, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
+
+	t.Run("down at last line moves to line end", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("hello")
+		textarea.row = 0
+		textarea.col = 2
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyDown, Text: "down"})
+
+		if textarea.row != 0 || textarea.col != len([]rune("hello")) {
+			t.Fatalf("expected cursor at line end, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
+}
+
 func TestModifierKeyDoesNotDeleteSelection(t *testing.T) {
 	textarea := newTextArea()
 	textarea = sendString(textarea, "abc")
