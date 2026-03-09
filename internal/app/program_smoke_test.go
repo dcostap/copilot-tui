@@ -48,6 +48,44 @@ func TestProgramSubmitAndQuitWhileStreaming(t *testing.T) {
 	}
 }
 
+func TestProgramShiftEnterInsertsNewlineWithoutSubmitting(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramScript(t,
+		tea.WindowSizeMsg{Width: 80, Height: 24},
+		tea.KeyPressMsg{Code: 'h', Text: "h"},
+		tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModShift},
+		tea.KeyPressMsg{Code: 'i', Text: "i"},
+		tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+	)
+
+	if got, want := finalModel.input.Value(), "h\ni"; got != want {
+		t.Fatalf("expected shift+enter to preserve %q, got %q", want, got)
+	}
+	if len(finalModel.state.Items) != 0 {
+		t.Fatalf("expected shift+enter not to submit, got timeline %#v", finalModel.state.Items)
+	}
+}
+
+func TestProgramCtrlJDoesNotInsertNewline(t *testing.T) {
+	t.Parallel()
+
+	finalModel := runProgramScript(t,
+		tea.WindowSizeMsg{Width: 80, Height: 24},
+		tea.KeyPressMsg{Code: 'h', Text: "h"},
+		tea.KeyPressMsg{Code: 'i', Text: "i"},
+		tea.KeyPressMsg{Code: 'j', Mod: tea.ModCtrl},
+		tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl},
+	)
+
+	if got, want := finalModel.input.Value(), "hi"; got != want {
+		t.Fatalf("expected ctrl+j to leave %q unchanged, got %q", want, got)
+	}
+	if len(finalModel.state.Items) != 0 {
+		t.Fatalf("expected ctrl+j not to submit, got timeline %#v", finalModel.state.Items)
+	}
+}
+
 func TestProgramSelectionReplaceAndQuit(t *testing.T) {
 	t.Parallel()
 

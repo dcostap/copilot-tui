@@ -66,7 +66,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rebuildPalette()
 			return m, nil
 
-		case "shift+enter", "ctrl+j":
+		case "shift+enter":
 			m.input.FlushPasteBurstBeforeExternalInput()
 			m.input.InsertString("\n")
 			return m, m.scheduleInputFlushTick(nil)

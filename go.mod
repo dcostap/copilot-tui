@@ -14,7 +14,7 @@ require (
 	github.com/rivo/uniseg v0.4.7
 )
 
-replace charm.land/bubbletea/v2 => github.com/dcostap/bubbletea/v2 v2.0.0-20260309145032-9f4408cbaa94
+replace charm.land/bubbletea/v2 => github.com/dcostap/bubbletea/v2 v2.0.0-20260309152233-54596c6e65ef
 
 require (
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect

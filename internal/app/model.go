@@ -387,8 +387,5 @@ func (m *model) applyPaletteSelection(selection string) {
 }
 
 func (m *model) newlineHint() string {
-	if m.useShiftEnter {
-		return "Shift+Enter"
-	}
-	return "Ctrl+J"
+	return "Shift+Enter"
 }

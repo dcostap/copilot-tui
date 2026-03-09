@@ -20,7 +20,7 @@ func TestKeyboardEnhancementsSwitchNewlineHint(t *testing.T) {
 		{
 			name: "fallback newline hint",
 			msg:  tea.KeyboardEnhancementsMsg{},
-			want: "Ctrl+J newline",
+			want: "Shift+Enter newline",
 		},
 		{
 			name: "shift enter newline hint",
