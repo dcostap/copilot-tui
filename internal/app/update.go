@@ -4,8 +4,6 @@ import (
 	"context"
 
 	tea "charm.land/bubbletea/v2"
-
-	"copilot-tui/internal/composer"
 )
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -92,7 +90,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) scheduleInputFlushTick(cmd tea.Cmd) tea.Cmd {
-	if !m.input.IsPasteBurstActive() {
+	delay, ok := m.input.PasteBurstFlushDelay()
+	if !ok {
 		m.inputFlushTick = false
 		return cmd
 	}
@@ -101,7 +100,7 @@ func (m *model) scheduleInputFlushTick(cmd tea.Cmd) tea.Cmd {
 	}
 
 	m.inputFlushTick = true
-	tick := inputFlushTickCmd(composer.RecommendedPasteFlushDelay())
+	tick := inputFlushTickCmd(delay)
 	if cmd == nil {
 		return tick
 	}

@@ -365,6 +365,8 @@ type Model struct {
 
 	pasteBurst        pasteBurst
 	pasteBurstEnabled bool
+	viewCache         string
+	viewCacheValid    bool
 }
 
 type textPos struct {
@@ -464,6 +466,7 @@ func (m Model) Styles() Styles {
 func (m *Model) SetStyles(s Styles) {
 	m.styles = s
 	m.updateVirtualCursorStyle()
+	m.invalidateViewCache()
 }
 
 // VirtualCursor returns whether or not the virtual cursor is enabled.
@@ -475,6 +478,7 @@ func (m Model) VirtualCursor() bool {
 func (m *Model) SetVirtualCursor(v bool) {
 	m.useVirtualCursor = v
 	m.updateVirtualCursorStyle()
+	m.invalidateViewCache()
 }
 
 // updateVirtualCursorStyle sets styling on the virtual cursor based on the
@@ -608,6 +612,7 @@ func (m *Model) insertRunesFromUserInput(runes []rune) {
 	m.value[m.row] = append(m.value[m.row], tail...)
 
 	m.SetCursorColumn(m.col)
+	m.invalidateViewCache()
 }
 
 // Value returns the value of the text input.
@@ -929,6 +934,7 @@ func (m *Model) renderLineSlice(row, startCol int, text []rune, baseStyle lipglo
 // receive keyboard input and the cursor will be hidden.
 func (m *Model) Focus() tea.Cmd {
 	m.focus = true
+	m.invalidateViewCache()
 	return m.virtualCursor.Focus()
 }
 
@@ -937,6 +943,7 @@ func (m *Model) Focus() tea.Cmd {
 func (m *Model) Blur() {
 	m.focus = false
 	m.virtualCursor.Blur()
+	m.invalidateViewCache()
 }
 
 // Reset sets the input to its default state with no input.
@@ -947,6 +954,7 @@ func (m *Model) Reset() {
 	m.clearSelection()
 	m.viewport.GotoTop()
 	m.SetCursorColumn(0)
+	m.invalidateViewCache()
 }
 
 // Word returns the word at the cursor position.
@@ -1355,6 +1363,7 @@ func (m *Model) SetWidth(w int) {
 
 	m.viewport.SetWidth(inputWidth - reservedOuter)
 	m.width = inputWidth - reservedOuter - reservedInner
+	m.invalidateViewCache()
 }
 
 // SetPromptFunc supersedes the Prompt field and sets a dynamic prompt instead.
@@ -1366,6 +1375,7 @@ func (m *Model) SetWidth(w int) {
 func (m *Model) SetPromptFunc(promptWidth int, fn func(PromptInfo) string) {
 	m.promptFunc = fn
 	m.promptWidth = promptWidth
+	m.invalidateViewCache()
 }
 
 // Height returns the current height of the textarea.
@@ -1384,12 +1394,14 @@ func (m *Model) SetHeight(h int) {
 	}
 
 	m.repositionView()
+	m.invalidateViewCache()
 }
 
 // Update is the Bubble Tea update loop.
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	if !m.focus {
 		m.virtualCursor.Blur()
+		m.invalidateViewCache()
 		return m, nil
 	}
 
@@ -1410,10 +1422,17 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.PasteMsg:
 		m.handleExplicitPaste(msg.Content)
 	case tea.KeyPressMsg:
-		if m.handlePlainKeyPress(msg) {
+		pasteKeyResult := m.handlePlainKeyPress(msg)
+		if pasteKeyResult.consumed {
+			if !pasteKeyResult.flushed {
+				return m, nil
+			}
 			break
 		}
-		if !isModifierOnlyKeyPress(msg) {
+		if isModifierOnlyKeyPress(msg) {
+			return m, nil
+		}
+		if !pasteKeyResult.tracked {
 			m.FlushPasteBurstBeforeExternalInput()
 		}
 		switch {
@@ -1576,6 +1595,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	// Make sure we set the content of the viewport before updating it.
+	m.invalidateViewCache()
 	view := m.view()
 	m.viewport.SetContent(view)
 	vp, cmd := m.viewport.Update(msg)
@@ -1701,15 +1721,24 @@ func (m *Model) view() string {
 }
 
 // View renders the text area in its current state.
-func (m Model) View() string {
+func (m *Model) View() string {
+	if !m.viewCacheValid {
+		m.viewCache = m.view()
+		m.viewCacheValid = true
+	}
+
 	// XXX: This is a workaround for the case where the viewport hasn't
 	// been initialized yet like during the initial render. In that case,
 	// we need to render the view again because Update hasn't been called
 	// yet to set the content of the viewport.
-	m.viewport.SetContent(m.view())
+	m.viewport.SetContent(m.viewCache)
 	view := m.viewport.View()
 	styles := m.activeStyle()
 	return styles.Base.Render(view)
+}
+
+func (m *Model) invalidateViewCache() {
+	m.viewCacheValid = false
 }
 
 // promptView renders a single line of the prompt.
