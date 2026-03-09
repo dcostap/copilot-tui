@@ -2177,6 +2177,60 @@ func TestWordBackwardAtStartDoesNotLoop(t *testing.T) {
 	})
 }
 
+func TestWordNavigationTreatsExplicitLineBoundariesLikeCharacterMotion(t *testing.T) {
+	t.Run("ctrl+right at line end moves to next line start", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("one\n  two")
+		textarea.row = 0
+		textarea.col = len([]rune("one"))
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyRight, Mod: tea.ModCtrl, Text: "ctrl+right"})
+
+		if textarea.row != 1 || textarea.col != 0 {
+			t.Fatalf("expected cursor at next line start, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
+
+	t.Run("second ctrl+right still advances by word", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("one\n  two")
+		textarea.row = 1
+		textarea.col = 0
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyRight, Mod: tea.ModCtrl, Text: "ctrl+right"})
+
+		if textarea.row != 1 || textarea.col != len([]rune("  two")) {
+			t.Fatalf("expected cursor at end of next word, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
+
+	t.Run("ctrl+left at line start moves to previous line end", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("one  \ntwo")
+		textarea.row = 1
+		textarea.col = 0
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl, Text: "ctrl+left"})
+
+		if textarea.row != 0 || textarea.col != len([]rune("one  ")) {
+			t.Fatalf("expected cursor at previous line end, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
+
+	t.Run("second ctrl+left still moves by word", func(t *testing.T) {
+		textarea := newTextArea()
+		textarea.SetValue("one  \ntwo")
+		textarea.row = 0
+		textarea.col = len([]rune("one  "))
+
+		textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyLeft, Mod: tea.ModCtrl, Text: "ctrl+left"})
+
+		if textarea.row != 0 || textarea.col != 0 {
+			t.Fatalf("expected cursor at start of previous word, got row=%d col=%d", textarea.row, textarea.col)
+		}
+	})
+}
+
 func newTextArea() Model {
 	textarea := New()
 

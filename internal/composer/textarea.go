@@ -1128,6 +1128,11 @@ func (m *Model) characterLeft(insideLine bool) {
 // cursor blink should be reset. If input is masked, move input to the start
 // so as not to reveal word breaks in the masked input.
 func (m *Model) wordLeft() {
+	if m.col == 0 && m.row > 0 {
+		m.characterLeft(false /* insideLine */)
+		return
+	}
+
 	for {
 		prevRow, prevCol := m.row, m.col
 		m.characterLeft(true /* insideLine */)
@@ -1151,6 +1156,11 @@ func (m *Model) wordLeft() {
 // cursor blink should be reset. If the input is masked, move input to the end
 // so as not to reveal word breaks in the masked input.
 func (m *Model) wordRight() {
+	if m.col == len(m.value[m.row]) && m.row < len(m.value)-1 {
+		m.characterRight()
+		return
+	}
+
 	m.doWordRight(func(int, int) { /* nothing */ })
 }
 
