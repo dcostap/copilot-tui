@@ -60,6 +60,8 @@ type KeyMap struct {
 	LineNext                key.Binding
 	LinePrevious            key.Binding
 	LineStart               key.Binding
+	SelectLineNext          key.Binding
+	SelectLinePrevious      key.Binding
 	PageUp                  key.Binding
 	PageDown                key.Binding
 	Paste                   key.Binding
@@ -95,6 +97,8 @@ func DefaultKeyMap() KeyMap {
 		SelectWordBackward:      key.NewBinding(key.WithKeys("ctrl+shift+left"), key.WithHelp("ctrl+shift+left", "select word backward")),
 		LineNext:                key.NewBinding(key.WithKeys("down", "ctrl+n"), key.WithHelp("down", "next line")),
 		LinePrevious:            key.NewBinding(key.WithKeys("up", "ctrl+p"), key.WithHelp("up", "previous line")),
+		SelectLineNext:          key.NewBinding(key.WithKeys("shift+down"), key.WithHelp("shift+down", "select next line")),
+		SelectLinePrevious:      key.NewBinding(key.WithKeys("shift+up"), key.WithHelp("shift+up", "select previous line")),
 		DeleteWordBackward:      key.NewBinding(key.WithKeys("alt+backspace", "ctrl+w"), key.WithHelp("alt+backspace", "delete word backward")),
 		DeleteWordForward:       key.NewBinding(key.WithKeys("alt+delete", "alt+d"), key.WithHelp("alt+delete", "delete word forward")),
 		DeleteAfterCursor:       key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("ctrl+k", "delete after cursor")),
@@ -1551,6 +1555,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if !m.collapseSelectionToEnd() {
 				m.characterRight()
 			}
+		case key.Matches(msg, m.KeyMap.SelectLineNext):
+			m.updateSelection(m.CursorDown)
 		case key.Matches(msg, m.KeyMap.LineNext):
 			m.clearSelection()
 			m.CursorDown()
@@ -1564,6 +1570,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if !m.collapseSelectionToStart() {
 				m.characterLeft(false /* insideLine */)
 			}
+		case key.Matches(msg, m.KeyMap.SelectLinePrevious):
+			m.updateSelection(m.CursorUp)
 		case key.Matches(msg, m.KeyMap.LinePrevious):
 			m.clearSelection()
 			m.CursorUp()

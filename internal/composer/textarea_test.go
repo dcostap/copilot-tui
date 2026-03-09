@@ -2087,6 +2087,44 @@ func TestSelectionShiftLeftTracksAnchor(t *testing.T) {
 	}
 }
 
+func TestSelectionShiftDownTracksAnchorAcrossLines(t *testing.T) {
+	textarea := newTextArea()
+	textarea.SetValue("one\ntwo")
+	textarea.row = 0
+	textarea.col = 1
+
+	textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift, Text: "shift+down"})
+
+	if !textarea.hasSelection() {
+		t.Fatal("expected selection to become active")
+	}
+	if textarea.selectionRow != 0 || textarea.selectionCol != 1 {
+		t.Fatalf("expected anchor at row=0 col=1, got row=%d col=%d", textarea.selectionRow, textarea.selectionCol)
+	}
+	if textarea.row != 1 || textarea.col != 1 {
+		t.Fatalf("expected cursor at row=1 col=1, got row=%d col=%d", textarea.row, textarea.col)
+	}
+}
+
+func TestSelectionShiftUpTracksAnchorAcrossLines(t *testing.T) {
+	textarea := newTextArea()
+	textarea.SetValue("one\ntwo")
+	textarea.row = 1
+	textarea.col = 2
+
+	textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyUp, Mod: tea.ModShift, Text: "shift+up"})
+
+	if !textarea.hasSelection() {
+		t.Fatal("expected selection to become active")
+	}
+	if textarea.selectionRow != 1 || textarea.selectionCol != 2 {
+		t.Fatalf("expected anchor at row=1 col=2, got row=%d col=%d", textarea.selectionRow, textarea.selectionCol)
+	}
+	if textarea.row != 0 || textarea.col != 2 {
+		t.Fatalf("expected cursor at row=0 col=2, got row=%d col=%d", textarea.row, textarea.col)
+	}
+}
+
 func TestSelectionHomeEndReplacement(t *testing.T) {
 	t.Run("shift home replaces to line start", func(t *testing.T) {
 		textarea := newTextArea()
@@ -2114,6 +2152,23 @@ func TestSelectionHomeEndReplacement(t *testing.T) {
 			t.Fatalf("expected %q, got %q", want, got)
 		}
 	})
+}
+
+func TestSelectionShiftDownReplacementAcrossLines(t *testing.T) {
+	textarea := newTextArea()
+	textarea.SetValue("one\ntwo")
+	textarea.row = 0
+	textarea.col = 1
+
+	textarea, _ = textarea.Update(tea.KeyPressMsg{Code: tea.KeyDown, Mod: tea.ModShift, Text: "shift+down"})
+	textarea, _ = textarea.Update(keyPress('X'))
+
+	if got, want := textarea.Value(), "oXwo"; got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+	if textarea.hasSelection() {
+		t.Fatal("selection should be cleared after multiline replacement")
+	}
 }
 
 func TestModifierKeyDoesNotDeleteSelection(t *testing.T) {
